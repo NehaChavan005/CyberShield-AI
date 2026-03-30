@@ -1,6 +1,21 @@
 import streamlit as st
 from utils.attack_predictor import predict_attack
 
+# Simple glassmorphism CSS for Streamlit
+st.markdown("""
+<style>
+  .glass {
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🛡 CyberShield AI Threat Monitoring")
 
 st.header("Simulate Network Traffic")
@@ -27,23 +42,33 @@ if st.button("Analyze Traffic"):
         "malware_signature": "none",
         "traffic_type": traffic_type,
         "attack_type": attack_type
+ 
     }
 
     result = predict_attack(sample)
 
-    if result["prediction"] == 1:
-        st.error("🚨 Cyber Attack Detected")
+    if result.get("error"):
+        st.error(f"Prediction failed: {result['error']}")
     else:
-        st.success("✅ Normal Traffic")
+        if result.get("prediction") == 1:
+            st.error("🚨 Cyber Attack Detected")
+        else:
+            st.success("✅ Normal Traffic")
 
-    st.subheader("📊 Risk Level")
-    st.write(result["ai_analysis"]["risk_level"])
+        with st.container():
+            st.markdown('<div class="glass">', unsafe_allow_html=True)
+            st.subheader("📊 Risk Level")
+            st.write(result.get("ai_analysis", {}).get("risk_level"))
 
-    st.subheader("🤖 AI Explanation")
-    st.write(result["ai_analysis"]["explanation"])
+            st.subheader("🧾 Detected Attack Type")
+            st.write(result.get("processed", {}).get("attack_type", "unknown"))
 
-    st.subheader("🛡 Recommended Remediation")
-    st.write(result["ai_analysis"]["remediation"])
+            st.subheader("🤖 AI Explanation")
+            st.write(result.get("ai_analysis", {}).get("explanation"))
 
-    st.subheader("📄 AI Security Report")
-    st.write(result["llm_security_report"])
+            st.subheader("🛡 Recommended Remediation")
+            st.write(result.get("ai_analysis", {}).get("remediation"))
+
+            st.subheader("📄 Detailed Security Report")
+            st.code(result.get("llm_security_report", ""))
+            st.markdown('</div>', unsafe_allow_html=True)

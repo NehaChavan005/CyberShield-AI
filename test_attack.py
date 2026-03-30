@@ -16,4 +16,10 @@ sample_traffic = {
 
 result = predict_attack(sample_traffic)
 
-print(result)
+if result.get("error"):
+    print("Prediction error:", result.get("error"))
+else:
+    print("Prediction:", result.get("prediction"))
+    print("Probability:", result.get("probability"))
+    print("AI Analysis:", result.get("ai_analysis"))
+    print("Processed:", result.get("processed"))

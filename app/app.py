@@ -1,10 +1,13 @@
+import sys
+import os
+# Ensure project root is on sys.path so `from utils` works when running via streamlit
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import streamlit as st
 import pandas as pd
-import joblib
-
-# Load trained model
-MODEL_PATH = "../model/cybershield_model.pkl"
-clf = joblib.load(MODEL_PATH)
+from utils.attack_predictor import predict_attack
 
 st.title("🔐 CyberShield-AI: Cyber Attack Detection Demo")
 
@@ -18,17 +21,20 @@ request_rate = st.number_input("Request Rate (req/s)", min_value=0, max_value=10
 failed_logins = st.number_input("Failed Logins", min_value=0, max_value=1000, value=0)
 
 if st.button("Detect Attack"):
-    # Build sample dataframe
-    sample = pd.DataFrame([{
+    sample = {
         "protocol": protocol,
         "port": port,
         "packet_size": packet_size,
         "request_rate": request_rate,
-        "failed_logins": failed_logins
-    }])
+        "failed_logins": failed_logins,
+    }
 
-    prediction = clf.predict(sample)[0]
-    if prediction == 1:
-        st.error("⚠️ Attack Detected!")
+    result = predict_attack(sample)
+
+    if result.get("error"):
+        st.error(f"Prediction error: {result['error']}")
     else:
-        st.success("✅ Normal Traffic")
+        if result.get("prediction") == 1:
+            st.error("⚠️ Attack Detected!")
+        else:
+            st.success("✅ Normal Traffic")
