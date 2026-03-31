@@ -87,4 +87,3 @@ if st.button("Analyze Traffic"):
             st.subheader("Detailed Security Report")
             st.code(result.get("llm_security_report", ""))
             st.markdown("</div>", unsafe_allow_html=True)
-

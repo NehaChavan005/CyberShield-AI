@@ -45,4 +45,3 @@ if st.button("Detect Attack"):
             st.error("Attack detected")
         else:
             st.success("Normal traffic")
-
