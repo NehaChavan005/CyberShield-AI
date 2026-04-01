@@ -23,6 +23,8 @@ class LoginRequest(BaseModel):
 
 
 class PredictionRequest(BaseModel):
+    source_ip: str | None = None
+    destination_ip: str | None = None
     protocol: str
     port: int
     packet_size: int
@@ -31,6 +33,9 @@ class PredictionRequest(BaseModel):
     malware_signature: str = "none"
     traffic_type: str = "normal"
     attack_type: str = "none"
+    suspicious_pid: int | None = None
+    suspicious_process_name: str | None = None
+    auto_remediate: bool = False
 
 
 @app.get("/health")
@@ -56,7 +61,9 @@ def protected_predict(
     payload: PredictionRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    result = predict_attack(payload.model_dump())
+    request_payload = payload.model_dump()
+    auto_remediate = request_payload.pop("auto_remediate", False)
+    result = predict_attack(request_payload, auto_remediate=auto_remediate)
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])
 

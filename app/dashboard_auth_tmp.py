@@ -41,6 +41,10 @@ port = st.number_input("Port", value=80)
 packet_size = st.slider("Packet Size", 100, 1500, 500)
 request_rate = st.slider("Request Rate", 1, 5000, 100)
 failed_logins = st.slider("Failed Logins", 0, 50, 0)
+source_ip = st.text_input("Source IP", value="45.23.12.11")
+suspicious_pid = st.text_input("Suspicious PID", value="")
+suspicious_process_name = st.text_input("Suspicious Process Name", value="")
+auto_remediate = st.checkbox("Enable automated incident response", value=False)
 
 traffic_type = st.selectbox("Traffic Type", ["normal", "suspicious"])
 attack_type = st.selectbox(
@@ -58,15 +62,20 @@ if st.button("Analyze Traffic"):
         "malware_signature": "none",
         "traffic_type": traffic_type,
         "attack_type": attack_type,
+        "source_ip": source_ip,
+        "suspicious_pid": int(suspicious_pid) if suspicious_pid.strip().isdigit() else None,
+        "suspicious_process_name": suspicious_process_name.strip() or None,
     }
 
-    result = predict_attack(sample)
+    result = predict_attack(sample, auto_remediate=auto_remediate)
 
     if result.get("error"):
         st.error(f"Prediction failed: {result['error']}")
     else:
         if result.get("prediction") == 1:
             st.error("Cyber attack detected")
+        elif result.get("ai_analysis", {}).get("policy_override"):
+            st.warning("High-risk traffic detected by policy override")
         else:
             st.success("Normal traffic")
 
@@ -76,13 +85,22 @@ if st.button("Analyze Traffic"):
             st.write(result.get("ai_analysis", {}).get("risk_level"))
 
             st.subheader("Detected Attack Type")
-            st.write(result.get("processed", {}).get("attack_type", "unknown"))
+            st.write(result.get("ai_analysis", {}).get("attack_type", "unknown"))
 
             st.subheader("AI Explanation")
             st.write(result.get("ai_analysis", {}).get("explanation"))
 
             st.subheader("Recommended Remediation")
             st.write(result.get("ai_analysis", {}).get("remediation"))
+
+            if result.get("incident_response"):
+                st.subheader("Automated Response")
+                st.write(result["incident_response"]["summary"])
+                for action in result["incident_response"].get("actions", []):
+                    st.write(
+                        f"{action.get('type')}: {'SUCCESS' if action.get('success') else 'FAILED'}"
+                    )
+                    st.caption(action.get("details"))
 
             st.subheader("Detailed Security Report")
             st.code(result.get("llm_security_report", ""))

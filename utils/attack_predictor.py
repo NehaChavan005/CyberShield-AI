@@ -4,6 +4,9 @@ import os
 import logging
 import json
 
+from utils.ai_remediation import execute_incident_response
+from utils.risk_engine import assess_incident_response_need, calculate_risk
+
 logging.basicConfig(level=logging.INFO)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -81,7 +84,7 @@ def preprocess_input(data):
     return df
 
 
-def predict_attack(data):
+def predict_attack(data, auto_remediate=False):
     """Predict attack and return a structured dict for consistent caller handling.
 
     Returns:
@@ -97,7 +100,8 @@ def predict_attack(data):
     ensure_assets_loaded()
 
     result = {"prediction": None, "probability": None, "processed": None,
-              "ai_analysis": None, "llm_security_report": None, "error": None}
+              "ai_analysis": None, "llm_security_report": None, "incident_response": None,
+              "error": None}
 
     try:
         if model is None:
@@ -115,26 +119,67 @@ def predict_attack(data):
             except Exception:
                 result["probability"] = None
 
-        # AI analysis: include attack_type if present
-        attack_type = None
+        raw_attack_type = data.get("attack_type", "none")
+        model_attack_type = None
         if isinstance(result["processed"], dict):
-            attack_type = result["processed"].get("attack_type")
+            model_attack_type = result["processed"].get("attack_type")
 
-        risk = "High" if result["prediction"] == 1 else "Low"
-        explanation = (f"Model flagged the sample as malicious. Detected attack type: {attack_type}." if result["prediction"] == 1
-                       else "Model considers sample normal.")
-        remediation = ("Isolate host, block IP, inspect captured traffic." if result["prediction"] == 1
-                       else "No immediate action required.")
+        policy_triggered, policy_reason = assess_incident_response_need(
+            data,
+            result["prediction"],
+            result["probability"],
+        )
+        risk = calculate_risk(raw_attack_type)
+        if risk in {"SAFE", "UNKNOWN"}:
+            risk = "High" if result["prediction"] == 1 else "Low"
 
-        result["ai_analysis"] = {"risk_level": risk, "explanation": explanation, "remediation": remediation}
+        if result["prediction"] == 1:
+            explanation = f"Model flagged the sample as malicious. Detected attack type: {raw_attack_type}."
+            remediation = "Isolate host, block IP, inspect captured traffic."
+        elif policy_triggered:
+            explanation = (
+                f"Model confidence was borderline, but policy marked the traffic as dangerous. "
+                f"Attack type: {raw_attack_type}. Reason: {policy_reason}"
+            )
+            remediation = "Contain the source, review firewall actions, and inspect the host immediately."
+        else:
+            explanation = "Model considers sample normal."
+            remediation = "No immediate action required."
+
+        result["ai_analysis"] = {
+            "risk_level": risk,
+            "explanation": explanation,
+            "remediation": remediation,
+            "policy_override": policy_triggered,
+            "policy_reason": policy_reason,
+            "attack_type": raw_attack_type,
+        }
         # Compose a simple detailed report including processed features
-        report_lines = [f"Prediction: {result['prediction']}", f"Risk: {risk}", f"Attack Type: {attack_type}"]
+        report_lines = [
+            f"Prediction: {result['prediction']}",
+            f"Risk: {risk}",
+            f"Attack Type: {raw_attack_type}",
+            f"Encoded Attack Type: {model_attack_type}",
+        ]
         report_lines.append("Explanation: " + explanation)
         report_lines.append("Remediation: " + remediation)
+        report_lines.append("Policy Override: " + ("yes" if policy_triggered else "no"))
+        report_lines.append("Policy Reason: " + policy_reason)
         report_lines.append("Processed features:")
         if isinstance(result["processed"], dict):
             for k, v in result["processed"].items():
                 report_lines.append(f" - {k}: {v}")
+        if auto_remediate and (result["prediction"] == 1 or policy_triggered):
+            result["incident_response"] = execute_incident_response(data, result)
+
+        if result["incident_response"]:
+            report_lines.append("Incident Response: " + result["incident_response"]["summary"])
+            for action in result["incident_response"].get("actions", []):
+                action_status = "SUCCESS" if action.get("success") else "FAILED"
+                report_lines.append(
+                    f" - {action.get('type')}: {action_status} ({action.get('details')})"
+                )
+
         result["llm_security_report"] = "\n".join(report_lines)
 
         return result

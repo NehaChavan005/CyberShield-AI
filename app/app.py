@@ -26,6 +26,8 @@ port = st.number_input("Port", min_value=0, max_value=65535, value=80)
 packet_size = st.number_input("Packet Size (bytes)", min_value=1, max_value=5000, value=512)
 request_rate = st.number_input("Request Rate (req/s)", min_value=0, max_value=10000, value=10)
 failed_logins = st.number_input("Failed Logins", min_value=0, max_value=1000, value=0)
+source_ip = st.text_input("Source IP", value="45.23.12.11")
+auto_remediate = st.checkbox("Enable automated incident response", value=False)
 
 if st.button("Detect Attack"):
     sample = {
@@ -34,9 +36,10 @@ if st.button("Detect Attack"):
         "packet_size": packet_size,
         "request_rate": request_rate,
         "failed_logins": failed_logins,
+        "source_ip": source_ip,
     }
 
-    result = predict_attack(sample)
+    result = predict_attack(sample, auto_remediate=auto_remediate)
 
     if result.get("error"):
         st.error(f"Prediction error: {result['error']}")
@@ -45,4 +48,6 @@ if st.button("Detect Attack"):
             st.error("Attack detected")
         else:
             st.success("Normal traffic")
+        if result.get("incident_response"):
+            st.write(result["incident_response"]["summary"])
 

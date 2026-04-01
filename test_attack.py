@@ -23,3 +23,4 @@ else:
     print("Probability:", result.get("probability"))
     print("AI Analysis:", result.get("ai_analysis"))
     print("Processed:", result.get("processed"))
+    print("Incident Response:", result.get("incident_response"))
