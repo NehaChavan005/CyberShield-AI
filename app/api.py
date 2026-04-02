@@ -12,6 +12,7 @@ from auth.api import get_current_user
 from auth.security import create_access_token
 from auth.store import authenticate_user
 from utils.attack_predictor import predict_attack
+from utils.threat_intelligence import add_to_blacklist, enrich_threat_intelligence, load_blacklist_db
 
 
 app = FastAPI(title="CyberShield-AI API", version="1.0.0")
@@ -36,6 +37,20 @@ class PredictionRequest(BaseModel):
     suspicious_pid: int | None = None
     suspicious_process_name: str | None = None
     auto_remediate: bool = False
+
+
+class ThreatIntelRequest(BaseModel):
+    source_ip: str | None = None
+    destination_ip: str | None = None
+    malware_signature: str | None = None
+    attack_type: str | None = None
+
+
+class BlacklistRequest(BaseModel):
+    indicator_type: str
+    value: str
+    source: str = "manual"
+    reason: str
 
 
 @app.get("/health")
@@ -68,3 +83,36 @@ def protected_predict(
         raise HTTPException(status_code=500, detail=result["error"])
 
     return {"user": current_user, "result": result}
+
+
+@app.post("/threat-intel/check")
+def threat_intel_check(
+    payload: ThreatIntelRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    intel = enrich_threat_intelligence(payload.model_dump())
+    return {"user": current_user, "result": intel}
+
+
+@app.get("/blacklist")
+def get_blacklist(current_user: dict = Depends(get_current_user)):
+    return {"user": current_user, "result": load_blacklist_db()}
+
+
+@app.post("/blacklist")
+def create_blacklist_entry(
+    payload: BlacklistRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        entry = add_to_blacklist(
+            payload.indicator_type,
+            payload.value,
+            payload.source,
+            payload.reason,
+            metadata={"created_by": current_user.get("username")},
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {"user": current_user, "result": entry}

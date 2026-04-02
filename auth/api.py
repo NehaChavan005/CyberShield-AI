@@ -3,7 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 
 from auth.security import decode_access_token
-from auth.store import USER_DB
+from auth.store import get_user
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -28,7 +28,7 @@ def get_current_user(
         ) from exc
 
     username = payload.get("sub")
-    user = USER_DB.get(username)
+    user = get_user(username)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

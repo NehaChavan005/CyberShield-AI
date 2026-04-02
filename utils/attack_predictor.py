@@ -6,6 +6,7 @@ import json
 
 from utils.ai_remediation import execute_incident_response
 from utils.risk_engine import assess_incident_response_need, calculate_risk
+from utils.threat_intelligence import auto_blacklist_indicators, enrich_threat_intelligence
 
 logging.basicConfig(level=logging.INFO)
 
@@ -101,7 +102,7 @@ def predict_attack(data, auto_remediate=False):
 
     result = {"prediction": None, "probability": None, "processed": None,
               "ai_analysis": None, "llm_security_report": None, "incident_response": None,
-              "error": None}
+              "threat_intelligence": None, "blacklist_updates": [], "error": None}
 
     try:
         if model is None:
@@ -119,6 +120,9 @@ def predict_attack(data, auto_remediate=False):
             except Exception:
                 result["probability"] = None
 
+        threat_intelligence = enrich_threat_intelligence(data)
+        result["threat_intelligence"] = threat_intelligence
+
         raw_attack_type = data.get("attack_type", "none")
         model_attack_type = None
         if isinstance(result["processed"], dict):
@@ -133,9 +137,25 @@ def predict_attack(data, auto_remediate=False):
         if risk in {"SAFE", "UNKNOWN"}:
             risk = "High" if result["prediction"] == 1 else "Low"
 
+        highest_intel_score = threat_intelligence.get("highest_score", 0)
+        blacklist_match = threat_intelligence.get("blacklist_match", False)
+        if blacklist_match:
+            risk = "CRITICAL"
+        elif highest_intel_score >= 80 and str(risk).upper() not in {"CRITICAL"}:
+            risk = "HIGH"
+
         if result["prediction"] == 1:
             explanation = f"Model flagged the sample as malicious. Detected attack type: {raw_attack_type}."
             remediation = "Isolate host, block IP, inspect captured traffic."
+        elif blacklist_match:
+            explanation = "Traffic hit a known-blacklisted indicator from the local threat intelligence database."
+            remediation = "Block the indicator immediately and investigate related systems."
+        elif highest_intel_score >= 50:
+            explanation = (
+                "External threat intelligence reported this indicator as suspicious even though the model "
+                "did not classify the sample as malicious."
+            )
+            remediation = "Contain the source and validate with logs, EDR, and firewall telemetry."
         elif policy_triggered:
             explanation = (
                 f"Model confidence was borderline, but policy marked the traffic as dangerous. "
@@ -153,7 +173,15 @@ def predict_attack(data, auto_remediate=False):
             "policy_override": policy_triggered,
             "policy_reason": policy_reason,
             "attack_type": raw_attack_type,
+            "threat_intel_score": highest_intel_score,
+            "blacklist_match": blacklist_match,
         }
+
+        result["blacklist_updates"] = auto_blacklist_indicators(
+            data,
+            threat_intelligence,
+            result["prediction"],
+        )
         # Compose a simple detailed report including processed features
         report_lines = [
             f"Prediction: {result['prediction']}",
@@ -165,6 +193,19 @@ def predict_attack(data, auto_remediate=False):
         report_lines.append("Remediation: " + remediation)
         report_lines.append("Policy Override: " + ("yes" if policy_triggered else "no"))
         report_lines.append("Policy Reason: " + policy_reason)
+        report_lines.append(f"Threat Intel Score: {highest_intel_score}")
+        report_lines.append("Blacklist Match: " + ("yes" if blacklist_match else "no"))
+        for indicator in threat_intelligence.get("indicators", []):
+            report_lines.append(
+                "Threat Intel Indicator: "
+                f"{indicator.get('type')}={indicator.get('value')} "
+                f"(severity={indicator.get('severity')}, score={indicator.get('score')})"
+            )
+        if result["blacklist_updates"]:
+            report_lines.append(
+                "Blacklist Updates: "
+                + ", ".join(item.get("value", "") for item in result["blacklist_updates"])
+            )
         report_lines.append("Processed features:")
         if isinstance(result["processed"], dict):
             for k, v in result["processed"].items():
