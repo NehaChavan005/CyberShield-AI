@@ -32,9 +32,9 @@
     "source_ip",
     "destination_ip"
   ],
-  "sample_count": 20003,
+  "sample_count": 20001,
   "label_distribution": {
-    "1": 18972,
+    "1": 18970,
     "0": 1031
   }
 }

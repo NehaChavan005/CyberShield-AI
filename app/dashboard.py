@@ -9,8 +9,17 @@ import streamlit as st
 import pandas as pd
 
 from auth.streamlit_auth import auth_page, logout_button, open_signup_page
+from model.model_lifecycle import (
+    get_current_model_status,
+    list_model_versions,
+    retrain_model_from_feedback,
+    submit_feedback,
+)
 from utils.attack_predictor import predict_attack
+from utils.forensics import analyze_attack_history, export_attack_history_csv, export_attack_history_pdf, load_attack_history
+from utils.packet_capture import run_dataset_packet_capture
 from utils.threat_intelligence import add_to_blacklist, enrich_threat_intelligence, load_blacklist_db
+from utils.vulnerability_scanner import scan_target
 
 
 st.set_page_config(
@@ -146,6 +155,51 @@ st.markdown(
     color: #ff4d4d;
     font-weight: 700;
   }
+  .result-banner {
+    padding: 18px 20px;
+    border-radius: 18px;
+    margin: 10px 0 18px 0;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 0 24px rgba(0,0,0,0.18);
+  }
+  .result-banner.alert {
+    border-color: rgba(255,77,77,0.45);
+    box-shadow: 0 0 30px rgba(255,77,77,0.18);
+  }
+  .result-banner.warn {
+    border-color: rgba(255,193,7,0.45);
+    box-shadow: 0 0 30px rgba(255,193,7,0.16);
+  }
+  .result-banner.good {
+    border-color: rgba(0,255,159,0.35);
+    box-shadow: 0 0 30px rgba(0,255,159,0.16);
+  }
+  .result-banner h3 {
+    margin: 0 0 6px 0;
+  }
+  .result-banner p {
+    margin: 0;
+    color: rgba(255,255,255,0.85);
+  }
+  .mini-card {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    margin-bottom: 12px;
+  }
+  .mini-card-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 6px;
+  }
+  .mini-card-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
     </style>
     """,
     unsafe_allow_html=True,
@@ -169,8 +223,228 @@ def render_public_auth() -> None:
     return None
 
 
+def format_confidence(probability) -> str:
+    if not probability or len(probability) < 2:
+        return "Unavailable"
+    try:
+        return f"{max(float(probability[0]), float(probability[1])) * 100:.1f}%"
+    except (TypeError, ValueError):
+        return "Unavailable"
+
+
+def render_result_banner(title: str, message: str, tone: str) -> None:
+    st.markdown(
+        f"""
+        <div class="result-banner {tone}">
+          <h3>{title}</h3>
+          <p>{message}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_indicator_card(indicator: dict) -> None:
+    severity = str(indicator.get("severity", "low")).lower()
+    indicator_class = "panel-critical" if severity in {"critical", "high"} else "panel-normal"
+    st.markdown(f'<div class="glass {indicator_class}">', unsafe_allow_html=True)
+    left, right = st.columns([1.2, 1], gap="large")
+    with left:
+        st.markdown(f"**Indicator**: `{indicator.get('value', 'unknown')}`")
+        st.caption(f"Type: {indicator.get('type', 'unknown')}")
+        st.write(f"Severity: {indicator.get('severity', 'unknown').upper()}")
+        st.write(f"Recommendation: {indicator.get('recommendation', 'Monitor indicator.')}")
+    with right:
+        st.metric("Intel Score", indicator.get("score", 0))
+        st.metric("Blacklisted", "Yes" if indicator.get("blacklisted") else "No")
+
+    vt = indicator.get("virustotal") or {}
+    abuse = indicator.get("abuseipdb") or {}
+    detail_tab, external_tab, raw_tab = st.tabs(["Summary", "External Signals", "Raw"])
+    with detail_tab:
+        if indicator.get("blacklist_entry"):
+            entry = indicator["blacklist_entry"]
+            st.write(f"Listed by: `{entry.get('source', 'unknown')}`")
+            st.write(f"Reason: {entry.get('reason', 'No reason recorded.')}")
+            st.caption(f"Listed at: {entry.get('listed_at', 'unknown')}")
+        else:
+            st.caption("This indicator is not currently present in the local blacklist.")
+    with external_tab:
+        if vt:
+            if vt.get("enabled") and not vt.get("error"):
+                cols = st.columns(4)
+                cols[0].metric("VT Malicious", vt.get("malicious", 0))
+                cols[1].metric("VT Suspicious", vt.get("suspicious", 0))
+                cols[2].metric("VT Harmless", vt.get("harmless", 0))
+                cols[3].metric("VT Reputation", vt.get("reputation", "n/a"))
+            elif vt.get("enabled") and vt.get("error"):
+                st.warning(f"VirusTotal lookup failed: {vt.get('error')}")
+            else:
+                st.caption(vt.get("reason", "VirusTotal is not configured."))
+
+        if abuse:
+            if abuse.get("enabled") and not abuse.get("error"):
+                cols = st.columns(4)
+                cols[0].metric("Abuse Score", abuse.get("confidence_score", 0))
+                cols[1].metric("Reports", abuse.get("total_reports", 0))
+                cols[2].metric("Country", abuse.get("country_code", "n/a"))
+                cols[3].metric("ISP", abuse.get("isp", "n/a"))
+            elif abuse.get("enabled") and abuse.get("error"):
+                st.warning(f"AbuseIPDB lookup failed: {abuse.get('error')}")
+            else:
+                st.caption(abuse.get("reason", "AbuseIPDB is not configured."))
+    with raw_tab:
+        st.json(indicator)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_analysis_result(result: dict) -> None:
+    ai_analysis = result.get("ai_analysis") or {}
+    threat_intel = result.get("threat_intelligence") or {}
+    risk_level = str(ai_analysis.get("risk_level", "unknown")).upper()
+    attack_type = ai_analysis.get("attack_type", "unknown")
+    confidence = format_confidence(result.get("probability"))
+    policy_override = ai_analysis.get("policy_override")
+
+    if result.get("prediction") == 1:
+        render_result_banner(
+            "Threat detected",
+            f"The model classified this sample as malicious with {confidence} confidence.",
+            "alert",
+        )
+    elif policy_override:
+        render_result_banner(
+            "High-risk traffic flagged",
+            f"Policy controls escalated this sample even though the model did not mark it as an attack. Confidence: {confidence}.",
+            "warn",
+        )
+    else:
+        render_result_banner(
+            "Traffic appears normal",
+            f"No active attack was predicted for this sample. Confidence: {confidence}.",
+            "good",
+        )
+
+    top_cols = st.columns(4)
+    top_cols[0].metric("Risk Level", risk_level)
+    top_cols[1].metric("Attack Type", attack_type)
+    top_cols[2].metric("Model Verdict", "Attack" if result.get("prediction") == 1 else "Normal")
+    top_cols[3].metric("Top Intel Score", threat_intel.get("highest_score", 0))
+
+    analysis_class = "panel-critical" if risk_level in {"CRITICAL", "HIGH"} else "panel-normal"
+    overview_tab, intel_tab, actions_tab, raw_tab = st.tabs(
+        ["Executive Summary", "Threat Intel", "Response", "Raw Details"]
+    )
+
+    with overview_tab:
+        st.markdown(f'<div class="glass {analysis_class}">', unsafe_allow_html=True)
+        summary_cols = st.columns(3)
+        summary_cols[0].markdown(
+            f'<div class="mini-card"><div class="mini-card-label">Policy Override</div><div class="mini-card-value">{"Yes" if policy_override else "No"}</div></div>',
+            unsafe_allow_html=True,
+        )
+        summary_cols[1].markdown(
+            f'<div class="mini-card"><div class="mini-card-label">Blacklist Match</div><div class="mini-card-value">{"Yes" if ai_analysis.get("blacklist_match") else "No"}</div></div>',
+            unsafe_allow_html=True,
+        )
+        summary_cols[2].markdown(
+            f'<div class="mini-card"><div class="mini-card-label">Confidence</div><div class="mini-card-value">{confidence}</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.subheader("What we found")
+        st.write(ai_analysis.get("explanation", "No explanation returned."))
+        st.subheader("Recommended next step")
+        st.write(ai_analysis.get("remediation", "No remediation guidance returned."))
+        if ai_analysis.get("policy_reason"):
+            st.caption(f"Policy reason: {ai_analysis.get('policy_reason')}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with intel_tab:
+        services = threat_intel.get("services") or {}
+        service_cols = st.columns(3)
+        service_cols[0].metric("Indicators", len(threat_intel.get("indicators", [])))
+        service_cols[1].metric("VirusTotal", "On" if services.get("virustotal_configured") else "Off")
+        service_cols[2].metric("AbuseIPDB", "On" if services.get("abuseipdb_configured") else "Off")
+        if threat_intel.get("indicators"):
+            for indicator in threat_intel.get("indicators", []):
+                render_indicator_card(indicator)
+        else:
+            st.info("No IP, domain, or hash indicators were extracted from this sample.")
+
+        if result.get("blacklist_updates"):
+            st.subheader("Blacklist updates")
+            for entry in result["blacklist_updates"]:
+                st.write(f"Added `{entry.get('value')}` from `{entry.get('source')}` to the local blacklist.")
+
+    with actions_tab:
+        incident_response = result.get("incident_response")
+        if incident_response:
+            st.markdown('<div class="glass">', unsafe_allow_html=True)
+            st.subheader("Automated response summary")
+            st.write(incident_response.get("summary", "No summary provided."))
+            for index, action in enumerate(incident_response.get("actions", []), start=1):
+                status = "SUCCESS" if action.get("success") else "FAILED"
+                st.markdown(f"**{index}. {action.get('type', 'action')}**: {status}")
+                st.caption(action.get("details", ""))
+                for command in action.get("commands", []):
+                    st.code(
+                        "\n".join(
+                            [
+                                f"Command: {command.get('command')}",
+                                f"Return code: {command.get('returncode')}",
+                                f"Stdout: {command.get('stdout')}",
+                                f"Stderr: {command.get('stderr')}",
+                            ]
+                        )
+                    )
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.info("No automated response was executed for this sample.")
+
+    with raw_tab:
+        processed = result.get("processed") or {}
+        left, right = st.columns(2, gap="large")
+        with left:
+            st.subheader("Processed features")
+            if processed:
+                st.json(processed)
+            else:
+                st.caption("Processed features are unavailable.")
+        with right:
+            st.subheader("Detailed report")
+            st.code(result.get("llm_security_report", ""))
+
+
+def render_lookup_result(lookup_result: dict) -> None:
+    services = lookup_result.get("services") or {}
+    status_class = "ti-status-bad" if lookup_result.get("blacklist_match") else "ti-status-clean"
+    status_text = "Blacklisted" if lookup_result.get("blacklist_match") else "Clean"
+
+    header_cols = st.columns(4)
+    header_cols[0].metric("Highest Intel Score", lookup_result.get("highest_score", 0))
+    header_cols[1].metric("Indicators Found", len(lookup_result.get("indicators", [])))
+    header_cols[2].metric("VirusTotal", "On" if services.get("virustotal_configured") else "Off")
+    header_cols[3].markdown(
+        f'<div class="mini-card"><div class="mini-card-label">Local Status</div><div class="mini-card-value {status_class}">{status_text}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if lookup_result.get("indicators"):
+        for indicator in lookup_result.get("indicators", []):
+            render_indicator_card(indicator)
+    else:
+        st.info("No recognizable IP, domain, or file hash was found in the lookup value.")
+
+    with st.expander("Lookup metadata"):
+        st.write(f"Blacklist database: `{lookup_result.get('blacklist_db_path', 'unknown')}`")
+        st.json(lookup_result)
+
+
 def render_overview(user: dict) -> None:
     blacklist_db = load_blacklist_db()
+    history_store = load_attack_history()
+    model_status = get_current_model_status()
+    current_model = model_status.get("current_model") or {}
     st.markdown(
         f"""
         <div class="hero">
@@ -184,7 +458,272 @@ def render_overview(user: dict) -> None:
     cols[0].metric("Blacklisted IPs", len(blacklist_db.get("ips", {})))
     cols[1].metric("Blacklisted Domains", len(blacklist_db.get("domains", {})))
     cols[2].metric("Blacklisted Hashes", len(blacklist_db.get("hashes", {})))
-    cols[3].metric("History Entries", len(blacklist_db.get("history", [])))
+    cols[3].metric("Logged Events", len(history_store.get("events", [])))
+
+    lifecycle_cols = st.columns(4)
+    lifecycle_cols[0].metric(
+        "Active Model Version",
+        current_model.get("version_id", "Unavailable"),
+    )
+    lifecycle_cols[1].metric("Feedback Samples", model_status.get("feedback_samples", 0))
+    lifecycle_cols[2].metric("Model Versions", model_status.get("available_versions", 0))
+    lifecycle_cols[3].metric("Training Samples", current_model.get("sample_count", 0))
+
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.subheader("Model Lifecycle Snapshot")
+    if current_model:
+        st.write(
+            f"Active model: `{current_model.get('version_id', 'unknown')}` trained at "
+            f"`{current_model.get('trained_at', 'unknown')}`."
+        )
+        st.write(
+            f"Feedback samples available for continuous learning: `{model_status.get('feedback_samples', 0)}`."
+        )
+        st.caption("Open the Model Lifecycle page to submit analyst feedback, retrain the model, and review previous versions.")
+    else:
+        st.info("No active model manifest is available yet. Train or retrain a model to populate lifecycle status.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _get_default_feedback_sample() -> dict:
+    latest_result = st.session_state.get("latest_simulation_result") or {}
+    latest_processed = latest_result.get("processed") or {}
+
+    return {
+        "timestamp": "",
+        "source_ip": str(latest_processed.get("source_ip", "")) if latest_processed else "",
+        "destination_ip": str(latest_processed.get("destination_ip", "")) if latest_processed else "",
+        "protocol": "TCP",
+        "port": 80,
+        "packet_size": 500,
+        "request_rate": 100,
+        "failed_logins": 0,
+        "malware_signature": "none",
+        "traffic_type": "normal",
+        "attack_type": "none",
+    }
+
+
+def render_model_lifecycle_page(user: dict) -> None:
+    st.markdown('<div class="page-heading"><h1>Model Lifecycle</h1></div>', unsafe_allow_html=True)
+    st.caption(f"Signed in as {user.get('username', 'unknown')}")
+
+    model_status = get_current_model_status()
+    current_model = model_status.get("current_model") or {}
+    versions = list_model_versions()
+    previous_versions = [
+        version for version in versions
+        if version.get("version_id") != current_model.get("version_id")
+    ]
+
+    top_cols = st.columns(4)
+    top_cols[0].metric("Current Active Model Version", current_model.get("version_id", "Unavailable"))
+    top_cols[1].metric("Total Feedback Samples", model_status.get("feedback_samples", 0))
+    top_cols[2].metric("Previous Model Versions", len(previous_versions))
+    top_cols[3].metric("Current Training Samples", current_model.get("sample_count", 0))
+
+    status_tab, feedback_tab, versions_tab, metrics_tab = st.tabs(
+        ["Status", "Submit Feedback", "Version History", "Retraining Metrics"]
+    )
+
+    with status_tab:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("Current model status")
+        if current_model:
+            st.write(f"Version ID: `{current_model.get('version_id', 'unknown')}`")
+            st.write(f"Trained at: `{current_model.get('trained_at', 'unknown')}`")
+            st.write(f"Triggered by: `{current_model.get('triggered_by', 'unknown')}`")
+            st.write(f"Model type: `{current_model.get('model_type', 'unknown')}`")
+            st.write(f"Feedback samples available: `{model_status.get('feedback_samples', 0)}`")
+            source_summary = current_model.get("source_summary") or {}
+            if source_summary:
+                summary_cols = st.columns(3)
+                summary_cols[0].metric("Base Samples", source_summary.get("base_samples", 0))
+                summary_cols[1].metric("Feedback Samples Used", source_summary.get("feedback_samples", 0))
+                summary_cols[2].metric("Combined Samples", source_summary.get("combined_samples", 0))
+        else:
+            st.info("No current model manifest found yet.")
+
+        min_feedback_samples = st.number_input(
+            "Minimum feedback samples required before retraining",
+            min_value=1,
+            value=max(1, int(model_status.get("feedback_samples", 1) or 1)),
+            step=1,
+        )
+        if st.button("Retrain Model", type="primary", use_container_width=True):
+            try:
+                retrain_result = retrain_model_from_feedback(
+                    min_feedback_samples=int(min_feedback_samples),
+                    triggered_by=f"dashboard:{user.get('username', 'unknown')}",
+                )
+            except ValueError as exc:
+                st.session_state["model_lifecycle_retrain_error"] = str(exc)
+                st.session_state.pop("model_lifecycle_retrain_result", None)
+            else:
+                st.session_state["model_lifecycle_retrain_result"] = retrain_result
+                st.session_state.pop("model_lifecycle_retrain_error", None)
+                st.rerun()
+
+        retrain_error = st.session_state.get("model_lifecycle_retrain_error")
+        if retrain_error:
+            st.error(retrain_error)
+
+        retrain_result = st.session_state.get("model_lifecycle_retrain_result")
+        if retrain_result:
+            manifest = retrain_result.get("model_manifest") or {}
+            render_result_banner(
+                "Retraining completed",
+                f"New active model version: {manifest.get('version_id', 'unknown')}",
+                "good",
+            )
+            dataset_summary = retrain_result.get("dataset_summary") or {}
+            result_cols = st.columns(3)
+            result_cols[0].metric("Feedback Used", retrain_result.get("feedback_samples_used", 0))
+            result_cols[1].metric("Combined Samples", dataset_summary.get("combined_samples", 0))
+            result_cols[2].metric("Feature Count", manifest.get("feature_count", 0))
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with feedback_tab:
+        defaults = _get_default_feedback_sample()
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("Submit analyst feedback")
+        st.caption("Use this to record new attack patterns or correct model mistakes so retraining can learn from them.")
+        col1, col2 = st.columns([1.15, 1], gap="large")
+        with col1:
+            feedback_timestamp = st.text_input("Timestamp", value=defaults["timestamp"], key="ml_feedback_timestamp")
+            feedback_source_ip = st.text_input("Source IP", value=defaults["source_ip"], key="ml_feedback_source_ip")
+            feedback_destination_ip = st.text_input("Destination IP", value=defaults["destination_ip"], key="ml_feedback_destination_ip")
+            feedback_protocol = st.selectbox("Protocol", ["TCP", "UDP", "HTTP", "HTTPS", "DNS"], key="ml_feedback_protocol")
+            feedback_port = st.number_input("Port", min_value=0, max_value=65535, value=int(defaults["port"]), key="ml_feedback_port")
+            feedback_packet_size = st.slider("Packet Size", 100, 1500, int(defaults["packet_size"]), key="ml_feedback_packet_size")
+        with col2:
+            feedback_request_rate = st.slider("Request Rate", 1, 5000, int(defaults["request_rate"]), key="ml_feedback_request_rate")
+            feedback_failed_logins = st.slider("Failed Logins", 0, 50, int(defaults["failed_logins"]), key="ml_feedback_failed_logins")
+            feedback_signature = st.text_input("Malware Signature / Domain", value=defaults["malware_signature"], key="ml_feedback_signature")
+            feedback_traffic_type = st.selectbox("Traffic Type", ["normal", "suspicious"], key="ml_feedback_traffic_type")
+            feedback_attack_type = st.selectbox(
+                "Attack Type",
+                ["none", "DDoS", "Brute Force", "SQL Injection", "XSS", "Port Scan"],
+                key="ml_feedback_attack_type",
+            )
+            expected_label = st.selectbox("Analyst Verdict", ["attack", "normal"], key="ml_feedback_label")
+        feedback_notes = st.text_area(
+            "Analyst Notes",
+            value="Confirmed by analyst review.",
+            key="ml_feedback_notes",
+        )
+
+        if st.button("Submit Analyst Feedback", use_container_width=True):
+            feedback_sample = {
+                "timestamp": feedback_timestamp.strip() or None,
+                "source_ip": feedback_source_ip.strip() or None,
+                "destination_ip": feedback_destination_ip.strip() or None,
+                "protocol": feedback_protocol,
+                "port": int(feedback_port),
+                "packet_size": int(feedback_packet_size),
+                "request_rate": int(feedback_request_rate),
+                "failed_logins": int(feedback_failed_logins),
+                "malware_signature": feedback_signature.strip() or "none",
+                "traffic_type": feedback_traffic_type,
+                "attack_type": feedback_attack_type,
+            }
+            try:
+                prediction_snapshot = predict_attack(feedback_sample)
+                feedback_result = submit_feedback(
+                    sample=feedback_sample,
+                    expected_label=expected_label,
+                    feedback_source=user.get("username", "analyst"),
+                    notes=feedback_notes.strip(),
+                    prediction_result=prediction_snapshot,
+                )
+            except ValueError as exc:
+                st.session_state["model_feedback_error"] = str(exc)
+                st.session_state.pop("model_feedback_result", None)
+            else:
+                st.session_state["model_feedback_result"] = feedback_result
+                st.session_state.pop("model_feedback_error", None)
+                st.rerun()
+
+        feedback_error = st.session_state.get("model_feedback_error")
+        if feedback_error:
+            st.error(feedback_error)
+
+        feedback_result = st.session_state.get("model_feedback_result")
+        if feedback_result:
+            render_result_banner(
+                "Feedback captured",
+                f"Stored feedback record {feedback_result.get('feedback_id', 'unknown')} for the continuous learning pipeline.",
+                "good",
+            )
+            st.json(feedback_result)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with versions_tab:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("List of previous model versions")
+        if previous_versions:
+            version_rows = []
+            for version in previous_versions:
+                source_summary = version.get("source_summary") or {}
+                version_rows.append(
+                    {
+                        "version_id": version.get("version_id"),
+                        "trained_at": version.get("trained_at"),
+                        "triggered_by": version.get("triggered_by"),
+                        "feedback_samples_used": source_summary.get("feedback_samples", 0),
+                        "combined_samples": source_summary.get("combined_samples", version.get("sample_count", 0)),
+                        "accuracy": (version.get("evaluation") or {}).get("accuracy"),
+                    }
+                )
+            st.dataframe(pd.DataFrame(version_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("No previous model versions are available yet.")
+
+        if current_model:
+            st.subheader("Current manifest")
+            st.json(current_model)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with metrics_tab:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("Retraining status and metrics")
+        if current_model:
+            evaluation = current_model.get("evaluation") or {}
+            summary_cols = st.columns(4)
+            summary_cols[0].metric("Accuracy", round(float(evaluation.get("accuracy", 0.0)) * 100, 2))
+            summary_cols[1].metric("Feature Count", current_model.get("feature_count", 0))
+            summary_cols[2].metric("Training Samples", current_model.get("sample_count", 0))
+            summary_cols[3].metric("Available Versions", model_status.get("available_versions", 0))
+
+            source_summary = current_model.get("source_summary") or {}
+            if source_summary:
+                retraining_df = pd.DataFrame(
+                    [
+                        {"Dataset": "Base Samples", "Count": source_summary.get("base_samples", 0)},
+                        {"Dataset": "Feedback Samples", "Count": source_summary.get("feedback_samples", 0)},
+                        {"Dataset": "Combined Samples", "Count": source_summary.get("combined_samples", 0)},
+                    ]
+                )
+                st.bar_chart(retraining_df.set_index("Dataset"))
+
+            class_metrics = []
+            for label, metric in evaluation.items():
+                if not isinstance(metric, dict):
+                    continue
+                class_metrics.append(
+                    {
+                        "label": label,
+                        "precision": metric.get("precision"),
+                        "recall": metric.get("recall"),
+                        "f1_score": metric.get("f1-score"),
+                        "support": metric.get("support"),
+                    }
+                )
+            if class_metrics:
+                st.dataframe(pd.DataFrame(class_metrics), use_container_width=True, hide_index=True)
+        else:
+            st.info("No retraining metrics are available yet.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render_simulation_page(user: dict) -> None:
@@ -245,58 +784,91 @@ def render_simulation_page(user: dict) -> None:
         st.error(f"Prediction failed: {result['error']}")
         return
 
-    if result.get("prediction") == 1:
-        st.error("Cyber attack detected")
-    elif result.get("ai_analysis", {}).get("policy_override"):
-        st.warning("High-risk traffic detected by policy override")
-    else:
-        st.success("Normal traffic")
+    render_analysis_result(result)
 
-    analysis_class = "panel-critical" if str(result.get("ai_analysis", {}).get("risk_level", "")).upper() in {"CRITICAL", "HIGH"} else "panel-normal"
-    st.markdown(f'<div class="glass {analysis_class}">', unsafe_allow_html=True)
-    st.subheader("Analysis Summary")
-    st.write(f"Risk Level: {result.get('ai_analysis', {}).get('risk_level')}")
-    st.write(f"Attack Type: {result.get('ai_analysis', {}).get('attack_type', 'unknown')}")
-    st.write(result.get("ai_analysis", {}).get("explanation"))
-    st.write(f"Recommended remediation: {result.get('ai_analysis', {}).get('remediation')}")
 
-    threat_intel = result.get("threat_intelligence") or {}
-    st.subheader("Threat Intelligence")
-    st.write(f"Highest intel score: {threat_intel.get('highest_score', 0)}")
-    st.write(f"Blacklist match: {'Yes' if threat_intel.get('blacklist_match') else 'No'}")
-    for indicator in threat_intel.get("indicators", []):
-        st.markdown(
-            f"- `{indicator.get('type')}` `{indicator.get('value')}` | severity `{indicator.get('severity')}` | score `{indicator.get('score')}`"
+def render_dataset_packet_capture_page(user: dict) -> None:
+    st.markdown('<div class="page-heading"><h1>Dataset Packet Capture</h1></div>', unsafe_allow_html=True)
+    st.caption(f"Signed in as {user.get('username', 'unknown')}")
+
+    left, right = st.columns([1.1, 1], gap="large")
+    with left:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        packet_count = st.slider("Packets To Replay", min_value=1, max_value=50, value=10)
+        interval_seconds = st.slider("Replay Interval (seconds)", min_value=0.0, max_value=2.0, value=0.25, step=0.05)
+        attack_only = st.checkbox("Replay attack rows only", value=False)
+        auto_remediate = st.checkbox("Enable automated incident response", value=False, key="capture_auto")
+        st.info("This replays packets synthesized from the bundled dataset. No real network traffic is captured.")
+        if st.button("Start Dataset Packet Capture", type="primary", use_container_width=True):
+            try:
+                st.session_state["latest_packet_capture"] = run_dataset_packet_capture(
+                    packet_count=packet_count,
+                    interval_seconds=interval_seconds,
+                    attack_only=attack_only,
+                    auto_remediate=auto_remediate,
+                )
+            except Exception as exc:
+                st.session_state["latest_packet_capture_error"] = str(exc)
+            else:
+                st.session_state.pop("latest_packet_capture_error", None)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with right:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("How it works")
+        st.write("Rows are loaded from the local CSV dataset.")
+        st.write("Each row is converted into a Scapy packet and written to a replay `.pcap` file.")
+        st.write("Packets are read back in sequence, converted into features, and sent through the model.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    capture_error = st.session_state.get("latest_packet_capture_error")
+    if capture_error:
+        st.error(capture_error)
+        return
+
+    result = st.session_state.get("latest_packet_capture")
+    if not result:
+        return
+
+    metrics = st.columns(4)
+    metrics[0].metric("Packets Processed", result.get("packet_count", 0))
+    metrics[1].metric("Attacks Detected", result.get("attacks_detected", 0))
+    metrics[2].metric("Normal Detected", result.get("normal_detected", 0))
+    metrics[3].metric("Replay Interval", f"{result.get('interval_seconds', 0)}s")
+
+    render_result_banner(
+        "Dataset replay finished",
+        f"Replay capture saved to {result.get('capture_path')}. Predictions were generated for each replayed packet.",
+        "good" if result.get("attacks_detected", 0) == 0 else "warn",
+    )
+
+    packet_rows = []
+    for packet in result.get("packets", []):
+        features = packet.get("features") or {}
+        packet_rows.append(
+            {
+                "packet_number": packet.get("packet_number"),
+                "prediction": "attack" if packet.get("prediction") == 1 else "normal",
+                "risk_level": packet.get("risk_level"),
+                "attack_type": packet.get("attack_type"),
+                "source_ip": features.get("source_ip"),
+                "destination_ip": features.get("destination_ip"),
+                "protocol": features.get("protocol"),
+                "port": features.get("port"),
+                "packet_size": features.get("packet_size"),
+                "request_rate": features.get("request_rate"),
+                "failed_logins": features.get("failed_logins"),
+            }
         )
 
-    if result.get("blacklist_updates"):
-        st.subheader("Blacklist Updates")
-        for entry in result["blacklist_updates"]:
-            st.write(f"Added `{entry.get('value')}` to the blacklist from `{entry.get('source')}`.")
-
-    if result.get("incident_response"):
-        st.subheader("Automated Response")
-        st.write(result["incident_response"]["summary"])
-        for index, action in enumerate(result["incident_response"].get("actions", []), start=1):
-            st.markdown(
-                f"**{index}. {action.get('type')}**: {'SUCCESS' if action.get('success') else 'FAILED'}"
-            )
-            st.caption(action.get("details"))
-            for command in action.get("commands", []):
-                st.code(
-                    "\n".join(
-                        [
-                            f"Command: {command.get('command')}",
-                            f"Return code: {command.get('returncode')}",
-                            f"Stdout: {command.get('stdout')}",
-                            f"Stderr: {command.get('stderr')}",
-                        ]
-                    )
-                )
-
-    st.subheader("Detailed Security Report")
-    st.code(result.get("llm_security_report", ""))
-    st.markdown("</div>", unsafe_allow_html=True)
+    tabs = st.tabs(["Packet Results", "Packet Details"])
+    with tabs[0]:
+        st.dataframe(pd.DataFrame(packet_rows), use_container_width=True, hide_index=True)
+    with tabs[1]:
+        for packet in result.get("packets", []):
+            with st.expander(f"Packet {packet.get('packet_number')}"):
+                st.json(packet.get("features") or {})
+                st.json(packet.get("result") or {})
 
 
 def render_threat_intelligence_page(user: dict) -> None:
@@ -321,21 +893,7 @@ def render_threat_intelligence_page(user: dict) -> None:
 
         lookup_result = st.session_state.get("ti_lookup_result")
         if lookup_result:
-            st.write(f"Highest intel score: {lookup_result.get('highest_score', 0)}")
-            status_class = "ti-status-bad" if lookup_result.get('blacklist_match') else "ti-status-clean"
-            status_text = "Yes" if lookup_result.get('blacklist_match') else "No"
-            st.markdown(f'Blacklist match: <span class="{status_class}">{status_text}</span>', unsafe_allow_html=True)
-            for indicator in lookup_result.get("indicators", []):
-                indicator_class = "panel-critical" if str(indicator.get("severity", "")).lower() in {"critical", "high"} else "panel-normal"
-                st.markdown(f'<div class="glass {indicator_class}">', unsafe_allow_html=True)
-                st.markdown(
-                    f"- `{indicator.get('type')}` `{indicator.get('value')}` | severity `{indicator.get('severity')}` | score `{indicator.get('score')}`"
-                )
-                if indicator.get("abuseipdb"):
-                    st.caption(f"AbuseIPDB: {indicator.get('abuseipdb')}")
-                if indicator.get("virustotal"):
-                    st.caption(f"VirusTotal: {indicator.get('virustotal')}")
-                st.markdown("</div>", unsafe_allow_html=True)
+            render_lookup_result(lookup_result)
 
     with add_col:
         st.markdown("### History")
@@ -396,6 +954,219 @@ def render_threat_intelligence_page(user: dict) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def render_forensics_page(user: dict) -> None:
+    st.markdown('<div class="page-heading"><h1>Logging & Forensics</h1></div>', unsafe_allow_html=True)
+    st.caption(f"Signed in as {user.get('username', 'unknown')}")
+
+    history_store = load_attack_history()
+    events = list(reversed(history_store.get("events", [])))
+    analysis = analyze_attack_history(list(history_store.get("events", [])))
+
+    top_cols = st.columns(5)
+    top_cols[0].metric("Total Events", analysis["totals"]["events"])
+    top_cols[1].metric("Detected Attacks", analysis["totals"]["attacks"])
+    top_cols[2].metric("Vulnerability Scans", analysis["totals"].get("vulnerability_scans", 0))
+    top_cols[3].metric("Critical Events", analysis["totals"]["critical"])
+    top_cols[4].metric("Scan Findings", analysis["totals"].get("scan_findings", 0))
+
+    export_col, dist_col = st.columns([1, 1.4], gap="large")
+    with export_col:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("Export Reports")
+        st.caption("Download the recorded event history for investigations and audit evidence.")
+        st.download_button(
+            "Download CSV Report",
+            data=export_attack_history_csv(list(history_store.get("events", []))),
+            file_name="cybershield_attack_history.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+        try:
+            pdf_bytes = export_attack_history_pdf(list(history_store.get("events", [])))
+            st.download_button(
+                "Download PDF Report",
+                data=pdf_bytes,
+                file_name="cybershield_forensics_report.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        except RuntimeError as exc:
+            st.warning(str(exc))
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with dist_col:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("Log Analysis")
+        risk_distribution = analysis.get("risk_distribution", {})
+        if risk_distribution:
+            risk_df = pd.DataFrame(
+                [{"Risk Level": key, "Count": value} for key, value in risk_distribution.items()]
+            )
+            st.bar_chart(risk_df.set_index("Risk Level"))
+        else:
+            st.info("No events have been logged yet.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    bottom_left, bottom_right = st.columns([1, 1], gap="large")
+    with bottom_left:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("Frequent Attack Types")
+        top_types = analysis.get("top_attack_types", [])
+        if top_types:
+            st.dataframe(pd.DataFrame(top_types), use_container_width=True, hide_index=True)
+        else:
+            st.info("No attack records are available yet.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with bottom_right:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("Top Source IPs")
+        top_sources = analysis.get("top_source_ips", [])
+        if top_sources:
+            st.dataframe(pd.DataFrame(top_sources), use_container_width=True, hide_index=True)
+        else:
+            st.info("No malicious source IPs have been recorded yet.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.subheader("Event History")
+    search = st.text_input("Search event logs", placeholder="Search by IP, attack type, risk level, verdict, or summary")
+    if search.strip():
+        term = search.strip().lower()
+        events = [
+            event for event in events
+            if term in str(event.get("source_ip", "")).lower()
+            or term in str(event.get("destination_ip", "")).lower()
+            or term in str(event.get("attack_type", "")).lower()
+            or term in str(event.get("risk_level", "")).lower()
+            or term in str(event.get("verdict", "")).lower()
+            or term in str(event.get("summary", "")).lower()
+        ]
+
+    if events:
+        event_df = pd.DataFrame(events)
+        display_columns = [
+            column
+            for column in [
+                "event_type",
+                "logged_at",
+                "verdict",
+                "risk_level",
+                "attack_type",
+                "scan_target",
+                "source_ip",
+                "destination_ip",
+                "protocol",
+                "port",
+                "confidence",
+                "threat_intel_score",
+                "blacklist_match",
+            ]
+            if column in event_df.columns
+        ]
+        st.dataframe(event_df[display_columns], use_container_width=True, hide_index=True)
+
+        with st.expander("Recent detailed events"):
+            for event in events[:10]:
+                st.json(event)
+    else:
+        st.info("No event logs match the current filter.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _parse_port_input(raw_value: str) -> list[int]:
+    values = []
+    for part in str(raw_value or "").split(","):
+        item = part.strip()
+        if not item:
+            continue
+        if "-" in item:
+            start_text, end_text = item.split("-", 1)
+            try:
+                start_port = int(start_text.strip())
+                end_port = int(end_text.strip())
+            except ValueError:
+                continue
+            if start_port > end_port:
+                start_port, end_port = end_port, start_port
+            values.extend(range(start_port, end_port + 1))
+            continue
+        try:
+            values.append(int(item))
+        except ValueError:
+            continue
+    return sorted({port for port in values if 1 <= port <= 65535})
+
+
+def render_vulnerability_scanner_page(user: dict) -> None:
+    st.markdown('<div class="page-heading"><h1>Vulnerability Scanner</h1></div>', unsafe_allow_html=True)
+    st.caption(f"Signed in as {user.get('username', 'unknown')}")
+
+    left, right = st.columns([1.1, 1], gap="large")
+    with left:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        target = st.text_input("Target Host", value="127.0.0.1", help="Use localhost, an IP address, or a hostname you are authorized to scan.")
+        port_mode = st.radio("Port Scope", ["Common ports", "Custom ports"], horizontal=True)
+        custom_ports_raw = ""
+        if port_mode == "Custom ports":
+            custom_ports_raw = st.text_input("Custom Ports", value="22,80,443,3306", help="Comma-separated ports or ranges like 20-25,80,443")
+        timeout = st.slider("Per-port timeout (seconds)", min_value=0.1, max_value=1.5, value=0.35, step=0.05)
+        st.info("This scanner performs TCP connect checks and applies safe heuristic checks for exposed services and common misconfigurations.")
+        if st.button("Run Vulnerability Scan", type="primary", use_container_width=True):
+            try:
+                ports = None if port_mode == "Common ports" else _parse_port_input(custom_ports_raw)
+                if port_mode == "Custom ports" and not ports:
+                    st.warning("Enter at least one valid custom port before starting the scan.")
+                else:
+                    st.session_state["latest_vulnerability_scan"] = scan_target(target, ports=ports, timeout=timeout)
+            except ValueError as exc:
+                st.error(str(exc))
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with right:
+        st.markdown('<div class="glass">', unsafe_allow_html=True)
+        st.subheader("What this checks")
+        st.write("Port scanning to find reachable TCP services.")
+        st.write("Open service detection using common port-to-service mapping.")
+        st.write("Misconfiguration detection for risky exposed services like Telnet, FTP, SMB, databases, RDP, and missing HTTPS.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    result = st.session_state.get("latest_vulnerability_scan")
+    if not result:
+        return
+
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Overall Risk", result.get("overall_risk", "LOW"))
+    metric_cols[1].metric("Open Ports", len(result.get("open_ports", [])))
+    metric_cols[2].metric("Services", result.get("service_count", 0))
+    metric_cols[3].metric("Findings", len(result.get("misconfigurations", [])))
+    render_result_banner("Scan complete", result.get("summary", "Scan finished."), "warn" if result.get("misconfigurations") else "good")
+
+    ports_tab, findings_tab, raw_tab = st.tabs(["Open Ports", "Misconfigurations", "Raw Results"])
+    with ports_tab:
+        open_ports = result.get("open_ports", [])
+        if open_ports:
+            st.dataframe(pd.DataFrame(open_ports), use_container_width=True, hide_index=True)
+        else:
+            st.info("No open ports were found in the selected port set.")
+
+    with findings_tab:
+        findings = result.get("misconfigurations", [])
+        if findings:
+            for finding in findings:
+                tone = "alert" if str(finding.get("severity")).lower() in {"critical", "high"} else "warn"
+                render_result_banner(
+                    f"{finding.get('title')} ({str(finding.get('severity', 'info')).upper()})",
+                    f"{finding.get('description')} Recommendation: {finding.get('recommendation')}",
+                    tone,
+                )
+        else:
+            st.success("No misconfiguration heuristics were triggered by this scan.")
+
+    with raw_tab:
+        st.json(result)
+
+
 user = auth_page()
 
 if not user:
@@ -407,13 +1178,29 @@ with st.sidebar:
     st.caption(f"@{user.get('username')}")
     page = st.radio(
         "Navigate",
-        ["Overview", "Simulate Network Traffic", "Threat Intelligence"],
+        [
+            "Overview",
+            "Model Lifecycle",
+            "Simulate Network Traffic",
+            "Dataset Packet Capture",
+            "Threat Intelligence",
+            "Vulnerability Scanner",
+            "Logging & Forensics",
+        ],
     )
     logout_button()
 
 if page == "Overview":
     render_overview(user)
+elif page == "Model Lifecycle":
+    render_model_lifecycle_page(user)
 elif page == "Simulate Network Traffic":
     render_simulation_page(user)
-else:
+elif page == "Dataset Packet Capture":
+    render_dataset_packet_capture_page(user)
+elif page == "Threat Intelligence":
     render_threat_intelligence_page(user)
+elif page == "Vulnerability Scanner":
+    render_vulnerability_scanner_page(user)
+else:
+    render_forensics_page(user)

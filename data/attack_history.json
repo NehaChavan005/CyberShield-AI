@@ -1,0 +1,860 @@
+{
+  "events": [
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151604186021",
+      "logged_at": "2026-04-03T15:16:04Z",
+      "prediction": 0,
+      "verdict": "normal",
+      "risk_level": "LOW",
+      "attack_type": "none",
+      "source_ip": "170.180.59.41",
+      "destination_ip": "112.215.216.23",
+      "protocol": "ARP",
+      "port": 0,
+      "packet_size": 521,
+      "request_rate": 0,
+      "failed_logins": 0,
+      "traffic_type": "normal",
+      "malware_signature": "none",
+      "confidence": 100.0,
+      "policy_override": false,
+      "policy_reason": "No policy override triggered.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "170.180.59.41",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "112.215.216.23",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model considers sample normal.",
+      "remediation": "No immediate action required.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151605268116",
+      "logged_at": "2026-04-03T15:16:05Z",
+      "prediction": 0,
+      "verdict": "normal",
+      "risk_level": "LOW",
+      "attack_type": "none",
+      "source_ip": "118.121.157.147",
+      "destination_ip": "2.111.209.70",
+      "protocol": "UDP",
+      "port": 53,
+      "packet_size": 251,
+      "request_rate": 0,
+      "failed_logins": 0,
+      "traffic_type": "normal",
+      "malware_signature": "none",
+      "confidence": 100.0,
+      "policy_override": false,
+      "policy_reason": "No policy override triggered.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "118.121.157.147",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "2.111.209.70",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model considers sample normal.",
+      "remediation": "No immediate action required.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151606270487",
+      "logged_at": "2026-04-03T15:16:06Z",
+      "prediction": 0,
+      "verdict": "normal",
+      "risk_level": "LOW",
+      "attack_type": "none",
+      "source_ip": "118.121.157.147",
+      "destination_ip": "2.111.209.70",
+      "protocol": "UDP",
+      "port": 53,
+      "packet_size": 251,
+      "request_rate": 0,
+      "failed_logins": 0,
+      "traffic_type": "normal",
+      "malware_signature": "none",
+      "confidence": 100.0,
+      "policy_override": false,
+      "policy_reason": "No policy override triggered.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "118.121.157.147",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "2.111.209.70",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model considers sample normal.",
+      "remediation": "No immediate action required.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151608387409",
+      "logged_at": "2026-04-03T15:16:08Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "LOW",
+      "attack_type": "Port Scan",
+      "source_ip": "164.44.104.133",
+      "destination_ip": "236.88.92.31",
+      "protocol": "HTTPS",
+      "port": 23,
+      "packet_size": 1261,
+      "request_rate": 2635,
+      "failed_logins": 50,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_port_scan",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "164.44.104.133",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "236.88.92.31",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Port Scan.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151608582865",
+      "logged_at": "2026-04-03T15:16:08Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "LOW",
+      "attack_type": "Port Scan",
+      "source_ip": "164.44.104.133",
+      "destination_ip": "236.88.92.31",
+      "protocol": "HTTPS",
+      "port": 23,
+      "packet_size": 1261,
+      "request_rate": 2635,
+      "failed_logins": 50,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_port_scan",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "164.44.104.133",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "236.88.92.31",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Port Scan.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": "Executed 0/3 containment actions."
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151610490378",
+      "logged_at": "2026-04-03T15:16:10Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Command Injection",
+      "source_ip": "231.37.224.100",
+      "destination_ip": "118.81.1.16",
+      "protocol": "HTTP",
+      "port": 22,
+      "packet_size": 340,
+      "request_rate": 3772,
+      "failed_logins": 30,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_command_injection",
+      "confidence": 99.98,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "231.37.224.100",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "118.81.1.16",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Command Injection.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151611029998",
+      "logged_at": "2026-04-03T15:16:11Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Command Injection",
+      "source_ip": "231.37.224.100",
+      "destination_ip": "118.81.1.16",
+      "protocol": "HTTP",
+      "port": 22,
+      "packet_size": 340,
+      "request_rate": 3772,
+      "failed_logins": 30,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_command_injection",
+      "confidence": 99.98,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "231.37.224.100",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "118.81.1.16",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Command Injection.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": "Executed 0/3 containment actions."
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151613392173",
+      "logged_at": "2026-04-03T15:16:13Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "UDP Flood",
+      "source_ip": "150.40.224.227",
+      "destination_ip": "172.222.227.69",
+      "protocol": "UDP",
+      "port": 23,
+      "packet_size": 261,
+      "request_rate": 115,
+      "failed_logins": 4,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_udp_flood",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "150.40.224.227",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "172.222.227.69",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: UDP Flood.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151614175760",
+      "logged_at": "2026-04-03T15:16:14Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "UDP Flood",
+      "source_ip": "150.40.224.227",
+      "destination_ip": "172.222.227.69",
+      "protocol": "UDP",
+      "port": 23,
+      "packet_size": 261,
+      "request_rate": 115,
+      "failed_logins": 4,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_udp_flood",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "150.40.224.227",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "172.222.227.69",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: UDP Flood.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": "Executed 0/3 containment actions."
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151616348948",
+      "logged_at": "2026-04-03T15:16:16Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "MEDIUM",
+      "attack_type": "XSS",
+      "source_ip": "62.186.36.17",
+      "destination_ip": "175.42.45.38",
+      "protocol": "UDP",
+      "port": 8080,
+      "packet_size": 941,
+      "request_rate": 92,
+      "failed_logins": 33,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_xss",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "62.186.36.17",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "175.42.45.38",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: XSS.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151617148333",
+      "logged_at": "2026-04-03T15:16:17Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "MEDIUM",
+      "attack_type": "XSS",
+      "source_ip": "62.186.36.17",
+      "destination_ip": "175.42.45.38",
+      "protocol": "UDP",
+      "port": 8080,
+      "packet_size": 941,
+      "request_rate": 92,
+      "failed_logins": 33,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_xss",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "62.186.36.17",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "175.42.45.38",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: XSS.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": "Executed 0/3 containment actions."
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151620019196",
+      "logged_at": "2026-04-03T15:16:20Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Directory Traversal",
+      "source_ip": "103.178.5.83",
+      "destination_ip": "79.105.138.67",
+      "protocol": "HTTPS",
+      "port": 443,
+      "packet_size": 990,
+      "request_rate": 2039,
+      "failed_logins": 36,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_directory_traversal",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "103.178.5.83",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "79.105.138.67",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Directory Traversal.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151620798051",
+      "logged_at": "2026-04-03T15:16:20Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Directory Traversal",
+      "source_ip": "103.178.5.83",
+      "destination_ip": "79.105.138.67",
+      "protocol": "HTTPS",
+      "port": 443,
+      "packet_size": 990,
+      "request_rate": 2039,
+      "failed_logins": 36,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_directory_traversal",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "103.178.5.83",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "79.105.138.67",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Directory Traversal.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": "Executed 0/3 containment actions."
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151622860098",
+      "logged_at": "2026-04-03T15:16:22Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Spyware",
+      "source_ip": "34.230.149.120",
+      "destination_ip": "14.1.227.171",
+      "protocol": "DNS",
+      "port": 8080,
+      "packet_size": 1091,
+      "request_rate": 1195,
+      "failed_logins": 30,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_spyware",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "34.230.149.120",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "14.1.227.171",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Spyware.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151625219056",
+      "logged_at": "2026-04-03T15:16:25Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Spyware",
+      "source_ip": "34.230.149.120",
+      "destination_ip": "14.1.227.171",
+      "protocol": "DNS",
+      "port": 8080,
+      "packet_size": 1091,
+      "request_rate": 1195,
+      "failed_logins": 30,
+      "traffic_type": "suspicious",
+      "malware_signature": "hash_spyware",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "34.230.149.120",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "14.1.227.171",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Spyware.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": "Executed 0/3 containment actions."
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151625799419",
+      "logged_at": "2026-04-03T15:16:25Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Brute Force",
+      "source_ip": "228.116.34.141",
+      "destination_ip": "161.144.147.236",
+      "protocol": "HTTP",
+      "port": 22,
+      "packet_size": 276,
+      "request_rate": 1656,
+      "failed_logins": 19,
+      "traffic_type": "normal",
+      "malware_signature": "hash_brute_force",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "228.116.34.141",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "161.144.147.236",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Brute Force.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403151628039569",
+      "logged_at": "2026-04-03T15:16:28Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "HIGH",
+      "attack_type": "Brute Force",
+      "source_ip": "228.116.34.141",
+      "destination_ip": "161.144.147.236",
+      "protocol": "HTTP",
+      "port": 22,
+      "packet_size": 276,
+      "request_rate": 1656,
+      "failed_logins": 19,
+      "traffic_type": "normal",
+      "malware_signature": "hash_brute_force",
+      "confidence": 100.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "228.116.34.141",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "161.144.147.236",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: Brute Force.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": "Executed 0/3 containment actions."
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403152409678348",
+      "logged_at": "2026-04-03T15:24:09Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "CRITICAL",
+      "attack_type": "DDoS",
+      "source_ip": "45.23.12.11",
+      "destination_ip": "10.0.0.10",
+      "protocol": "TCP",
+      "port": 80,
+      "packet_size": 1500,
+      "request_rate": 5000,
+      "failed_logins": 0,
+      "traffic_type": "suspicious",
+      "malware_signature": "none",
+      "confidence": 60.67,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "45.23.12.11",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "10.0.0.10",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: DDoS.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403152424802799",
+      "logged_at": "2026-04-03T15:24:24Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "CRITICAL",
+      "attack_type": "DDoS",
+      "source_ip": "45.23.12.11",
+      "destination_ip": "10.0.0.10",
+      "protocol": "TCP",
+      "port": 80,
+      "packet_size": 1500,
+      "request_rate": 5000,
+      "failed_logins": 0,
+      "traffic_type": "suspicious",
+      "malware_signature": "none",
+      "confidence": 60.67,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "45.23.12.11",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "10.0.0.10",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: DDoS.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403152731551283",
+      "logged_at": "2026-04-03T15:27:31Z",
+      "prediction": 1,
+      "verdict": "attack",
+      "risk_level": "CRITICAL",
+      "attack_type": "DDoS",
+      "source_ip": "45.23.12.11",
+      "destination_ip": "10.0.0.10",
+      "protocol": "TCP",
+      "port": 80,
+      "packet_size": 1500,
+      "request_rate": 5000,
+      "failed_logins": 0,
+      "traffic_type": "suspicious",
+      "malware_signature": "none",
+      "confidence": 62.0,
+      "policy_override": true,
+      "policy_reason": "Model classified the traffic as malicious.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 2,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "45.23.12.11",
+          "severity": "low",
+          "score": 0
+        },
+        {
+          "type": "ip",
+          "value": "10.0.0.10",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model flagged the sample as malicious. Detected attack type: DDoS.",
+      "remediation": "Isolate host, block IP, inspect captured traffic.",
+      "incident_response_summary": null
+    },
+    {
+      "event_type": "attack_analysis",
+      "event_id": "evt-20260403153939047608",
+      "logged_at": "2026-04-03T15:39:39Z",
+      "prediction": 0,
+      "verdict": "normal",
+      "risk_level": "HIGH",
+      "attack_type": "Brute Force",
+      "source_ip": "45.23.12.11",
+      "destination_ip": null,
+      "protocol": "TCP",
+      "port": 80,
+      "packet_size": 500,
+      "request_rate": 811,
+      "failed_logins": 31,
+      "traffic_type": "normal",
+      "malware_signature": "none",
+      "confidence": 53.33,
+      "policy_override": true,
+      "policy_reason": "Policy override triggered because suspicious indicators are high despite model uncertainty.",
+      "threat_intel_score": 0,
+      "blacklist_match": false,
+      "indicator_count": 1,
+      "indicators": [
+        {
+          "type": "ip",
+          "value": "45.23.12.11",
+          "severity": "low",
+          "score": 0
+        }
+      ],
+      "summary": "Model confidence was borderline, but policy marked the traffic as dangerous. Attack type: Brute Force. Reason: Policy override triggered because suspicious indicators are high despite model uncertainty.",
+      "remediation": "Contain the source, review firewall actions, and inspect the host immediately.",
+      "incident_response_summary": null
+    }
+  ],
+  "updated_at": "2026-04-03T15:39:39Z"
+}

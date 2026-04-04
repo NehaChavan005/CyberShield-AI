@@ -5,6 +5,7 @@ import logging
 import json
 
 from utils.ai_remediation import execute_incident_response
+from utils.forensics import log_attack_event
 from utils.risk_engine import assess_incident_response_need, calculate_risk
 from utils.threat_intelligence import auto_blacklist_indicators, enrich_threat_intelligence
 
@@ -16,31 +17,47 @@ MODEL_PATH = os.path.join(BASE_DIR, "model", "cybershield_model.pkl")
 ENCODER_PATH = os.path.join(BASE_DIR, "model", "encoders.pkl")
 FEATURES_PATH = os.path.join(BASE_DIR, "model", "features.pkl")
 METADATA_PATH = os.path.join(BASE_DIR, "model", "feature_metadata.json")
+CURRENT_VERSION_PATH = os.path.join(BASE_DIR, "model", "current_model.json")
 
 # Assets (loaded lazily)
 model = None
 encoders = {}
 expected_columns = []
 metadata = {}
+current_model_manifest = {}
+asset_signature = None
+
+
+def _compute_asset_signature():
+    paths = [MODEL_PATH, ENCODER_PATH, FEATURES_PATH, METADATA_PATH, CURRENT_VERSION_PATH]
+    signature = []
+    for path in paths:
+        signature.append(os.path.getmtime(path) if os.path.exists(path) else None)
+    return tuple(signature)
 
 
 def ensure_assets_loaded():
     """Load model, encoders and feature list if not already loaded."""
-    global model, encoders, expected_columns, metadata
-    if model is not None and encoders and expected_columns:
+    global model, encoders, expected_columns, metadata, current_model_manifest, asset_signature
+    latest_signature = _compute_asset_signature()
+    if model is not None and encoders and expected_columns and asset_signature == latest_signature:
         return
     try:
-        if model is None and os.path.exists(MODEL_PATH):
+        asset_signature = latest_signature
+        if os.path.exists(MODEL_PATH):
             model = joblib.load(MODEL_PATH)
-        if not encoders and os.path.exists(ENCODER_PATH):
+        if os.path.exists(ENCODER_PATH):
             encoders = joblib.load(ENCODER_PATH)
-        if not expected_columns and os.path.exists(FEATURES_PATH):
+        if os.path.exists(FEATURES_PATH):
             expected_columns = joblib.load(FEATURES_PATH)
         if os.path.exists(METADATA_PATH):
-            with open(METADATA_PATH, "r") as f:
+            with open(METADATA_PATH, "r", encoding="utf-8") as f:
                 metadata = json.load(f)
                 if not expected_columns and metadata.get("feature_columns"):
                     expected_columns = metadata.get("feature_columns")
+        if os.path.exists(CURRENT_VERSION_PATH):
+            with open(CURRENT_VERSION_PATH, "r", encoding="utf-8") as f:
+                current_model_manifest = json.load(f)
     except Exception as e:
         logging.exception("Failed to load model assets: %s", e)
 
@@ -102,7 +119,8 @@ def predict_attack(data, auto_remediate=False):
 
     result = {"prediction": None, "probability": None, "processed": None,
               "ai_analysis": None, "llm_security_report": None, "incident_response": None,
-              "threat_intelligence": None, "blacklist_updates": [], "error": None}
+              "threat_intelligence": None, "blacklist_updates": [], "error": None,
+              "model_version": None}
 
     try:
         if model is None:
@@ -119,6 +137,7 @@ def predict_attack(data, auto_remediate=False):
                 result["probability"] = model.predict_proba(processed)[0].tolist()
             except Exception:
                 result["probability"] = None
+        result["model_version"] = current_model_manifest.get("version_id")
 
         threat_intelligence = enrich_threat_intelligence(data)
         result["threat_intelligence"] = threat_intelligence
@@ -185,6 +204,7 @@ def predict_attack(data, auto_remediate=False):
         # Compose a simple detailed report including processed features
         report_lines = [
             f"Prediction: {result['prediction']}",
+            f"Model Version: {result['model_version'] or 'unknown'}",
             f"Risk: {risk}",
             f"Attack Type: {raw_attack_type}",
             f"Encoded Attack Type: {model_attack_type}",
@@ -222,6 +242,7 @@ def predict_attack(data, auto_remediate=False):
                 )
 
         result["llm_security_report"] = "\n".join(report_lines)
+        result["forensics_log"] = log_attack_event(result, data)
 
         return result
 
