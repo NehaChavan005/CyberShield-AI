@@ -35,6 +35,15 @@
         "created_by": "admin"
       },
       "listed_at": "2026-04-02T16:19:54Z"
+    },
+    "97.205.250.44": {
+      "value": "97.205.250.44",
+      "source": "dashboard_manual",
+      "reason": "Analyst-confirmed malicious indicator",
+      "metadata": {
+        "created_by": "Appi"
+      },
+      "listed_at": "2026-04-05T05:20:01Z"
     }
   },
   "domains": {},
@@ -79,7 +88,17 @@
         "created_by": "admin"
       },
       "listed_at": "2026-04-02T16:19:54Z"
+    },
+    {
+      "type": "ip",
+      "value": "97.205.250.44",
+      "source": "dashboard_manual",
+      "reason": "Analyst-confirmed malicious indicator",
+      "metadata": {
+        "created_by": "Appi"
+      },
+      "listed_at": "2026-04-05T05:20:01Z"
     }
   ],
-  "updated_at": "2026-04-02T16:19:54Z"
+  "updated_at": "2026-04-05T05:20:01Z"
 }

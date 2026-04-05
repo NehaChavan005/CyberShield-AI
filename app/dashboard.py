@@ -6,6 +6,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 
 from auth.streamlit_auth import auth_page, logout_button, open_signup_page
@@ -23,7 +24,7 @@ from utils.vulnerability_scanner import scan_target
 
 
 st.set_page_config(
-    page_title="CyberShield-AI",
+    page_title="🛡️CyberShield-AI",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -31,7 +32,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
   .stApp {
     background:
@@ -41,9 +42,27 @@ st.markdown(
       linear-gradient(140deg, #05070b 0%, #09111f 44%, #04141d 100%);
     color: #ffffff;
     font-family: 'Inter', sans-serif;
+    position: relative;
+  }
+  .stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(0, 255, 255, 0.10), transparent 0 24%),
+      radial-gradient(circle at 85% 18%, rgba(0, 255, 159, 0.08), transparent 0 22%),
+      radial-gradient(circle at 50% 82%, rgba(0, 140, 255, 0.09), transparent 0 30%);
+    pointer-events: none;
+  }
+  .stApp > header,
+  .stApp > div,
+  section[data-testid="stSidebar"] {
+    position: relative;
+    z-index: 1;
   }
   h1, h2, h3, .auth-title {
-    font-family: 'Orbitron', 'Inter', sans-serif;
+    font-family: 'Inter', sans-serif;
     letter-spacing: 0.04em;
   }
   section[data-testid="stSidebar"] {
@@ -71,9 +90,18 @@ st.markdown(
     transition: all 0.2s ease;
   }
   .stButton > button:hover {
+    background: linear-gradient(135deg, rgba(0,255,255,0.30), rgba(0,255,159,0.26));
+    color: #eaffff;
     border-color: rgba(0,255,159,0.60);
     box-shadow: 0 0 24px rgba(0,255,159,0.22);
     transform: translateY(-1px);
+  }
+  .stButton > button:focus,
+  .stButton > button:focus-visible,
+  .stButton > button:active {
+    color: #ffffff;
+    border-color: rgba(0,255,255,0.55);
+    box-shadow: 0 0 0 0.18rem rgba(0,255,255,0.12), 0 0 24px rgba(0,255,159,0.18);
   }
   div[data-testid="stMetric"] {
     background: rgba(255,255,255,0.06);
@@ -124,12 +152,32 @@ st.markdown(
     text-align: center;
   }
   .auth-title {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
     font-size: 2rem;
     color: #ffffff;
     margin-bottom: 1rem;
     text-shadow: 0 0 18px rgba(0,255,255,0.22);
   }
-  .auth-card {
+  .auth-title-icon {
+    width: 2.3rem;
+    height: 2.3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(0,255,255,0.22), rgba(0,255,159,0.12));
+    border: 1px solid rgba(0,255,255,0.24);
+    box-shadow: 0 0 24px rgba(0,255,255,0.18);
+  }
+  .auth-title-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    filter: drop-shadow(0 0 10px rgba(0,255,255,0.32));
+  }
+  div[data-testid="stForm"] {
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.10);
     border-radius: 20px;
@@ -200,10 +248,371 @@ st.markdown(
     font-size: 1.1rem;
     font-weight: 700;
   }
+  .status-shell {
+    padding: 22px;
+    border-radius: 22px;
+    background:
+      linear-gradient(155deg, rgba(0,255,255,0.08), rgba(0,255,159,0.04)),
+      rgba(6, 14, 24, 0.82);
+    border: 1px solid rgba(0,255,255,0.16);
+    box-shadow: 0 0 28px rgba(0,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.03);
+    margin-bottom: 18px;
+  }
+  .status-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .status-kicker {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: rgba(0,255,255,0.72);
+    margin-bottom: 6px;
+  }
+  .status-version {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #ffffff;
+  }
+  .status-chip {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,255,159,0.22);
+    background: rgba(0,255,159,0.08);
+    color: #8fffd3;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .status-item {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .status-label {
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.62);
+    margin-bottom: 6px;
+  }
+  .status-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f5ffff;
+    word-break: break-word;
+  }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+
+def render_network_background() -> None:
+    components.html(
+        """
+        <style>
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: transparent;
+        }
+        </style>
+        <script>
+        (function () {
+          const doc = window.parent.document;
+          const mountTarget = doc.querySelector(".stApp") || doc.body;
+          let layer = doc.getElementById("cybershield-network-bg");
+          let canvas = doc.getElementById("cybershield-network-canvas");
+
+          if (!layer) {
+            layer = doc.createElement("div");
+            layer.id = "cybershield-network-bg";
+            layer.setAttribute("aria-hidden", "true");
+            layer.style.position = "fixed";
+            layer.style.top = "0";
+            layer.style.left = "0";
+            layer.style.width = "100%";
+            layer.style.height = "100%";
+            layer.style.pointerEvents = "none";
+            layer.style.zIndex = "0";
+            layer.style.overflow = "hidden";
+
+            canvas = doc.createElement("canvas");
+            canvas.id = "cybershield-network-canvas";
+            canvas.style.width = "100%";
+            canvas.style.height = "100%";
+            canvas.style.display = "block";
+            canvas.style.opacity = "1";
+
+            layer.appendChild(canvas);
+            mountTarget.prepend(layer);
+          }
+          else if (layer.parentElement !== mountTarget) {
+            mountTarget.prepend(layer);
+          }
+
+          if (!canvas || layer.dataset.initialized === "true") {
+            return;
+          }
+          layer.dataset.initialized = "true";
+
+          const ctx = canvas.getContext("2d");
+          const particles = [];
+          const ripples = [];
+          const mouse = {
+            x: null,
+            y: null,
+            active: false
+          };
+          const settings = {
+            particleCount: Math.min(100, Math.max(60, Math.floor(window.parent.innerWidth / 20))),
+            maxParticles: 150,
+            maxDistance: 156,
+            maxSpeed: 0.34,
+            mouseRange: 180
+          };
+          const palette = {
+            nodePrimary: "rgba(0,255,255,0.62)",
+            nodeSecondary: "rgba(0,255,255,0.42)",
+            nodeAccent: "rgba(0,255,159,0.38)",
+            line: "rgba(0,255,255,0.28)",
+            ripple: "rgba(0,255,255,0.34)"
+          };
+          let animationFrameId = null;
+          let resizeTimer = null;
+
+          function resize() {
+            const ratio = window.parent.devicePixelRatio || 1;
+            const width = window.parent.innerWidth;
+            const height = window.parent.innerHeight;
+            canvas.width = width * ratio;
+            canvas.height = height * ratio;
+            canvas.style.width = width + "px";
+            canvas.style.height = height + "px";
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+          }
+
+          function randomBetween(min, max) {
+            return min + Math.random() * (max - min);
+          }
+
+          function createParticle(x, y, burst) {
+            const sourceX = typeof x === "number" ? x : Math.random() * window.parent.innerWidth;
+            const sourceY = typeof y === "number" ? y : Math.random() * window.parent.innerHeight;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = burst ? randomBetween(0.65, 1.15) : randomBetween(0.06, 0.18);
+            return {
+              x: sourceX,
+              y: sourceY,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              radius: randomBetween(1.0, burst ? 2.0 : 1.7),
+              color: [palette.nodePrimary, palette.nodeSecondary, palette.nodeAccent][Math.floor(Math.random() * 3)],
+              burstLife: burst ? 0 : null
+            };
+          }
+
+          function initParticles() {
+            particles.length = 0;
+            for (let i = 0; i < settings.particleCount; i += 1) {
+              particles.push(createParticle());
+            }
+          }
+
+          function trimParticles() {
+            while (particles.length > settings.maxParticles) {
+              const burstIndex = particles.findIndex((particle) => particle.burstLife !== null);
+              particles.splice(burstIndex >= 0 ? burstIndex : 0, 1);
+            }
+          }
+
+          function addClickBurst(x, y) {
+            const burstCount = Math.floor(randomBetween(5, 11));
+            for (let i = 0; i < burstCount; i += 1) {
+              particles.push(createParticle(x, y, true));
+            }
+            trimParticles();
+            ripples.push({
+              x: x,
+              y: y,
+              radius: 10,
+              alpha: 0.24,
+              growth: randomBetween(1.8, 2.7)
+            });
+          }
+
+          function updateParticles() {
+            const width = window.parent.innerWidth;
+            const height = window.parent.innerHeight;
+
+            for (const particle of particles) {
+              if (mouse.active && mouse.x !== null && mouse.y !== null) {
+                const dx = mouse.x - particle.x;
+                const dy = mouse.y - particle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+                if (distance < settings.mouseRange) {
+                  const pull = (1 - distance / settings.mouseRange) * 0.0065;
+                  particle.vx += (dx / distance) * pull;
+                  particle.vy += (dy / distance) * pull;
+                }
+              }
+
+              particle.x += particle.vx;
+              particle.y += particle.vy;
+              particle.vx *= 0.997;
+              particle.vy *= 0.997;
+
+              const speed = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
+              if (speed > settings.maxSpeed) {
+                particle.vx = (particle.vx / speed) * settings.maxSpeed;
+                particle.vy = (particle.vy / speed) * settings.maxSpeed;
+              }
+
+              if (particle.x < -12) particle.x = width + 12;
+              if (particle.x > width + 12) particle.x = -12;
+              if (particle.y < -12) particle.y = height + 12;
+              if (particle.y > height + 12) particle.y = -12;
+
+              if (particle.burstLife !== null) {
+                particle.burstLife += 1;
+                if (particle.burstLife > 80) {
+                  particle.burstLife = null;
+                  particle.radius = Math.max(1.0, particle.radius - 0.2);
+                  particle.vx *= 0.35;
+                  particle.vy *= 0.35;
+                }
+              }
+            }
+          }
+
+          function drawParticles() {
+            for (const particle of particles) {
+              const glow = ctx.createRadialGradient(
+                particle.x,
+                particle.y,
+                0,
+                particle.x,
+                particle.y,
+                particle.radius * 5
+              );
+              glow.addColorStop(0, "rgba(0,255,255,0.15)");
+              glow.addColorStop(1, "rgba(0,255,255,0)");
+              ctx.fillStyle = glow;
+              ctx.beginPath();
+              ctx.arc(particle.x, particle.y, particle.radius * 5, 0, Math.PI * 2);
+              ctx.fill();
+
+              ctx.fillStyle = particle.color;
+              ctx.beginPath();
+              ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+
+          function drawConnections() {
+            for (let i = 0; i < particles.length; i += 1) {
+              for (let j = i + 1; j < particles.length; j += 1) {
+                const a = particles[i];
+                const b = particles[j];
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < settings.maxDistance) {
+                  const alpha = (1 - distance / settings.maxDistance) * 0.3;
+                  ctx.strokeStyle = "rgba(0,255,255," + alpha + ")";
+                  ctx.lineWidth = 0.8;
+                  ctx.beginPath();
+                  ctx.moveTo(a.x, a.y);
+                  ctx.lineTo(b.x, b.y);
+                  ctx.stroke();
+                }
+              }
+            }
+          }
+
+          function drawRipples() {
+            for (let i = ripples.length - 1; i >= 0; i -= 1) {
+              const ripple = ripples[i];
+              ctx.strokeStyle = "rgba(0,255,255," + ripple.alpha + ")";
+              ctx.lineWidth = 1.35;
+              ctx.beginPath();
+              ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2);
+              ctx.stroke();
+
+              ripple.radius += ripple.growth;
+              ripple.alpha *= 0.94;
+              if (ripple.alpha < 0.015) {
+                ripples.splice(i, 1);
+              }
+            }
+          }
+
+          function step() {
+            ctx.clearRect(0, 0, window.parent.innerWidth, window.parent.innerHeight);
+            updateParticles();
+            drawConnections();
+            drawParticles();
+            drawRipples();
+            animationFrameId = window.parent.requestAnimationFrame(step);
+          }
+
+          function start() {
+            resize();
+            initParticles();
+            if (animationFrameId) {
+              window.parent.cancelAnimationFrame(animationFrameId);
+            }
+            step();
+          }
+
+          doc.addEventListener("click", (event) => {
+            addClickBurst(event.clientX, event.clientY);
+          }, { passive: true });
+          doc.addEventListener("mousemove", (event) => {
+            mouse.x = event.clientX;
+            mouse.y = event.clientY;
+            mouse.active = true;
+          }, { passive: true });
+          doc.addEventListener("mouseleave", () => {
+            mouse.active = false;
+            mouse.x = null;
+            mouse.y = null;
+          }, { passive: true });
+          window.parent.addEventListener("beforeunload", () => {
+            if (animationFrameId) {
+              window.parent.cancelAnimationFrame(animationFrameId);
+            }
+          });
+          window.parent.addEventListener("resize", () => {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(() => {
+              resize();
+            }, 120);
+          });
+
+          start();
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
+render_network_background()
 
 
 def infer_indicator_type(value: str) -> str:
@@ -238,6 +647,41 @@ def render_result_banner(title: str, message: str, tone: str) -> None:
         <div class="result-banner {tone}">
           <h3>{title}</h3>
           <p>{message}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_model_status_panel(current_model: dict, feedback_samples: int) -> None:
+    st.markdown(
+        f"""
+        <div class="status-shell">
+          <div class="status-topline">
+            <div>
+              <div class="status-kicker">Current Model Status</div>
+              <div class="status-version">{current_model.get('version_id', 'unknown')}</div>
+            </div>
+            <div class="status-chip">{feedback_samples} feedback samples ready</div>
+          </div>
+          <div class="status-grid">
+            <div class="status-item">
+              <div class="status-label">Trained At</div>
+              <div class="status-value">{current_model.get('trained_at', 'unknown')}</div>
+            </div>
+            <div class="status-item">
+              <div class="status-label">Triggered By</div>
+              <div class="status-value">{current_model.get('triggered_by', 'unknown')}</div>
+            </div>
+            <div class="status-item">
+              <div class="status-label">Model Type</div>
+              <div class="status-value">{current_model.get('model_type', 'unknown')}</div>
+            </div>
+            <div class="status-item">
+              <div class="status-label">Training Samples</div>
+              <div class="status-value">{current_model.get('sample_count', 0)}</div>
+            </div>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -516,25 +960,13 @@ def render_model_lifecycle_page(user: dict) -> None:
         if version.get("version_id") != current_model.get("version_id")
     ]
 
-    top_cols = st.columns(4)
-    top_cols[0].metric("Current Active Model Version", current_model.get("version_id", "Unavailable"))
-    top_cols[1].metric("Total Feedback Samples", model_status.get("feedback_samples", 0))
-    top_cols[2].metric("Previous Model Versions", len(previous_versions))
-    top_cols[3].metric("Current Training Samples", current_model.get("sample_count", 0))
-
     status_tab, feedback_tab, versions_tab, metrics_tab = st.tabs(
         ["Status", "Submit Feedback", "Version History", "Retraining Metrics"]
     )
 
     with status_tab:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
-        st.subheader("Current model status")
         if current_model:
-            st.write(f"Version ID: `{current_model.get('version_id', 'unknown')}`")
-            st.write(f"Trained at: `{current_model.get('trained_at', 'unknown')}`")
-            st.write(f"Triggered by: `{current_model.get('triggered_by', 'unknown')}`")
-            st.write(f"Model type: `{current_model.get('model_type', 'unknown')}`")
-            st.write(f"Feedback samples available: `{model_status.get('feedback_samples', 0)}`")
+            render_model_status_panel(current_model, int(model_status.get("feedback_samples", 0)))
             source_summary = current_model.get("source_summary") or {}
             if source_summary:
                 summary_cols = st.columns(3)
@@ -581,11 +1013,9 @@ def render_model_lifecycle_page(user: dict) -> None:
             result_cols[0].metric("Feedback Used", retrain_result.get("feedback_samples_used", 0))
             result_cols[1].metric("Combined Samples", dataset_summary.get("combined_samples", 0))
             result_cols[2].metric("Feature Count", manifest.get("feature_count", 0))
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with feedback_tab:
         defaults = _get_default_feedback_sample()
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         st.subheader("Submit analyst feedback")
         st.caption("Use this to record new attack patterns or correct model mistakes so retraining can learn from them.")
         col1, col2 = st.columns([1.15, 1], gap="large")
@@ -609,7 +1039,8 @@ def render_model_lifecycle_page(user: dict) -> None:
             expected_label = st.selectbox("Analyst Verdict", ["attack", "normal"], key="ml_feedback_label")
         feedback_notes = st.text_area(
             "Analyst Notes",
-            value="Confirmed by analyst review.",
+            value="",
+            placeholder="Example: Observed repeated login bursts from a single source IP, matched suspicious behavior during analyst review, and confirmed this traffic should be labeled as an attack.",
             key="ml_feedback_notes",
         )
 
@@ -656,10 +1087,8 @@ def render_model_lifecycle_page(user: dict) -> None:
                 "good",
             )
             st.json(feedback_result)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with versions_tab:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         st.subheader("List of previous model versions")
         if previous_versions:
             version_rows = []
@@ -679,13 +1108,7 @@ def render_model_lifecycle_page(user: dict) -> None:
         else:
             st.info("No previous model versions are available yet.")
 
-        if current_model:
-            st.subheader("Current manifest")
-            st.json(current_model)
-        st.markdown('</div>', unsafe_allow_html=True)
-
     with metrics_tab:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         st.subheader("Retraining status and metrics")
         if current_model:
             evaluation = current_model.get("evaluation") or {}
@@ -723,7 +1146,6 @@ def render_model_lifecycle_page(user: dict) -> None:
                 st.dataframe(pd.DataFrame(class_metrics), use_container_width=True, hide_index=True)
         else:
             st.info("No retraining metrics are available yet.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render_simulation_page(user: dict) -> None:
@@ -732,30 +1154,30 @@ def render_simulation_page(user: dict) -> None:
 
     col1, col2 = st.columns([1.2, 1], gap="large")
     with col1:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         protocol = st.selectbox("Protocol", ["TCP", "UDP", "HTTP", "HTTPS", "DNS"], key="sim_protocol")
         port = st.number_input("Port", value=80, key="sim_port")
         packet_size = st.slider("Packet Size", 100, 1500, 500, key="sim_packet")
         request_rate = st.slider("Request Rate", 1, 5000, 100, key="sim_rate")
         failed_logins = st.slider("Failed Logins", 0, 50, 0, key="sim_failed")
-        source_ip = st.text_input("Source IP", value="45.23.12.11", key="sim_source_ip")
-        destination_ip = st.text_input("Destination IP", value="10.0.0.25", key="sim_dest_ip")
-        suspicious_pid = st.text_input("Suspicious PID", value="", key="sim_pid")
-        suspicious_process_name = st.text_input("Suspicious Process Name", value="", key="sim_process")
-        malware_signature = st.text_input("Malware Signature / Domain", value="none", key="sim_signature")
-        auto_remediate = st.checkbox("Enable automated incident response", value=False, key="sim_auto")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         traffic_type = st.selectbox("Traffic Type", ["normal", "suspicious"], key="sim_traffic")
         attack_type = st.selectbox(
             "Attack Type",
             ["none", "DDoS", "Brute Force", "SQL Injection", "XSS", "Port Scan"],
             key="sim_attack",
         )
-        st.info("To see firewall and process actions, enable automated incident response and provide a valid source IP plus a real suspicious PID or process name.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        source_ip = st.text_input("Source IP", value="45.23.12.11", key="sim_source_ip")
+        destination_ip = st.text_input("Destination IP", value="10.0.0.25", key="sim_dest_ip")
+        malware_signature = st.text_input("Malware Signature / Domain", value="none", key="sim_signature")
+
+    support_col1, support_col2 = st.columns([1.2, 1], gap="large")
+    with support_col1:
+        suspicious_pid = st.text_input("Suspicious PID", value="", key="sim_pid")
+    with support_col2:
+        suspicious_process_name = st.text_input("Suspicious Process Name", value="", key="sim_process")
+
+    auto_remediate = st.checkbox("Enable automated incident response", value=False, key="sim_auto")
 
     if st.button("Analyze Traffic", type="primary", use_container_width=True):
         sample = {
@@ -791,35 +1213,22 @@ def render_dataset_packet_capture_page(user: dict) -> None:
     st.markdown('<div class="page-heading"><h1>Dataset Packet Capture</h1></div>', unsafe_allow_html=True)
     st.caption(f"Signed in as {user.get('username', 'unknown')}")
 
-    left, right = st.columns([1.1, 1], gap="large")
-    with left:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
-        packet_count = st.slider("Packets To Replay", min_value=1, max_value=50, value=10)
-        interval_seconds = st.slider("Replay Interval (seconds)", min_value=0.0, max_value=2.0, value=0.25, step=0.05)
-        attack_only = st.checkbox("Replay attack rows only", value=False)
-        auto_remediate = st.checkbox("Enable automated incident response", value=False, key="capture_auto")
-        st.info("This replays packets synthesized from the bundled dataset. No real network traffic is captured.")
-        if st.button("Start Dataset Packet Capture", type="primary", use_container_width=True):
-            try:
-                st.session_state["latest_packet_capture"] = run_dataset_packet_capture(
-                    packet_count=packet_count,
-                    interval_seconds=interval_seconds,
-                    attack_only=attack_only,
-                    auto_remediate=auto_remediate,
-                )
-            except Exception as exc:
-                st.session_state["latest_packet_capture_error"] = str(exc)
-            else:
-                st.session_state.pop("latest_packet_capture_error", None)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with right:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
-        st.subheader("How it works")
-        st.write("Rows are loaded from the local CSV dataset.")
-        st.write("Each row is converted into a Scapy packet and written to a replay `.pcap` file.")
-        st.write("Packets are read back in sequence, converted into features, and sent through the model.")
-        st.markdown('</div>', unsafe_allow_html=True)
+    packet_count = st.slider("Packets To Replay", min_value=1, max_value=50, value=10)
+    interval_seconds = st.slider("Replay Interval (seconds)", min_value=0.0, max_value=2.0, value=0.25, step=0.05)
+    attack_only = st.checkbox("Replay attack rows only", value=False)
+    auto_remediate = st.checkbox("Enable automated incident response", value=False, key="capture_auto")
+    if st.button("Start Dataset Packet Capture", type="primary", use_container_width=True):
+        try:
+            st.session_state["latest_packet_capture"] = run_dataset_packet_capture(
+                packet_count=packet_count,
+                interval_seconds=interval_seconds,
+                attack_only=attack_only,
+                auto_remediate=auto_remediate,
+            )
+        except Exception as exc:
+            st.session_state["latest_packet_capture_error"] = str(exc)
+        else:
+            st.session_state.pop("latest_packet_capture_error", None)
 
     capture_error = st.session_state.get("latest_packet_capture_error")
     if capture_error:
@@ -875,48 +1284,42 @@ def render_threat_intelligence_page(user: dict) -> None:
     st.markdown('<div class="page-heading"><h1>Threat Intelligence</h1></div>', unsafe_allow_html=True)
     st.caption(f"Signed in as {user.get('username', 'unknown')}")
 
-    st.markdown('<div class="glass">', unsafe_allow_html=True)
-    st.markdown("### Indicator Lookup")
-    lookup_col, add_col = st.columns([1.3, 1], gap="large")
-    with lookup_col:
-        indicator_value = st.text_input(
-            "Indicator Value",
-            value=st.session_state.get("ti_lookup_value", ""),
-            placeholder="IP, domain, or file hash",
-        )
-        if st.button("Lookup Indicator", type="primary", use_container_width=True):
-            indicator_type = infer_indicator_type(indicator_value)
-            payload = {"source_ip": indicator_value} if indicator_type == "ip" else {"malware_signature": indicator_value}
-            st.session_state["ti_lookup_value"] = indicator_value
-            st.session_state["ti_lookup_result"] = enrich_threat_intelligence(payload)
-            st.session_state["ti_lookup_type"] = indicator_type
+    st.markdown("### Lookup")
+    indicator_value = st.text_input(
+        "Indicator Value",
+        value=st.session_state.get("ti_lookup_value", ""),
+        placeholder="IP, domain, or file hash",
+    )
+    if st.button("Lookup Indicator", type="primary", use_container_width=True):
+        indicator_type = infer_indicator_type(indicator_value)
+        payload = {"source_ip": indicator_value} if indicator_type == "ip" else {"malware_signature": indicator_value}
+        st.session_state["ti_lookup_value"] = indicator_value
+        st.session_state["ti_lookup_result"] = enrich_threat_intelligence(payload)
+        st.session_state["ti_lookup_type"] = indicator_type
 
-        lookup_result = st.session_state.get("ti_lookup_result")
-        if lookup_result:
-            render_lookup_result(lookup_result)
+    lookup_result = st.session_state.get("ti_lookup_result")
+    if lookup_result:
+        render_lookup_result(lookup_result)
 
-    with add_col:
-        st.markdown("### History")
-        manual_type = st.selectbox("Indicator Type", ["ip", "domain", "hash"])
-        manual_value = st.text_input("Indicator", value="")
-        manual_reason = st.text_input("Reason", value="Analyst-confirmed malicious indicator")
-        if st.button("Add To Blacklist", use_container_width=True):
-            if manual_value.strip():
-                entry = add_to_blacklist(
-                    manual_type,
-                    manual_value.strip(),
-                    source="dashboard_manual",
-                    reason=manual_reason.strip() or "Analyst-confirmed malicious indicator",
-                    metadata={"created_by": user.get("username")},
-                )
-                st.success(f"Added {entry.get('value')} to the blacklist database.")
-            else:
-                st.warning("Enter an indicator value before adding it to the blacklist.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("### Blacklist IP")
+    manual_type = st.selectbox("Indicator Type", ["ip", "domain", "hash"])
+    manual_value = st.text_input("Indicator", value="")
+    manual_reason = st.text_input("Reason", value="Analyst-confirmed malicious indicator")
+    if st.button("Add To Blacklist", use_container_width=True):
+        if manual_value.strip():
+            entry = add_to_blacklist(
+                manual_type,
+                manual_value.strip(),
+                source="dashboard_manual",
+                reason=manual_reason.strip() or "Analyst-confirmed malicious indicator",
+                metadata={"created_by": user.get("username")},
+            )
+            st.success(f"Added {entry.get('value')} to the blacklist database.")
+        else:
+            st.warning("Enter an indicator value before adding it to the blacklist.")
 
     blacklist_db = load_blacklist_db()
-    st.markdown('<div class="glass">', unsafe_allow_html=True)
-    st.markdown("### Searchable Blacklist History")
+    st.markdown("### Blacklist History")
     search = st.text_input("Search history", placeholder="Search by IP, domain, hash, source, or reason")
     history = list(reversed(blacklist_db.get("history", [])))
     if search.strip():
@@ -935,10 +1338,8 @@ def render_threat_intelligence_page(user: dict) -> None:
         st.dataframe(history_df[display_cols], use_container_width=True, hide_index=True)
     else:
         st.info("No blacklist history matches the current filter.")
-    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="glass">', unsafe_allow_html=True)
-    st.markdown("### History")
+    st.markdown("### Blacklist IP")
     for idx, item in enumerate(history[:20]):
         cols = st.columns([1.6, 1.2, 0.8])
         cols[0].write(f"`{item.get('type')}` `{item.get('value')}`")
@@ -951,7 +1352,6 @@ def render_threat_intelligence_page(user: dict) -> None:
             st.session_state["ti_lookup_result"] = enrich_threat_intelligence(payload)
             st.session_state["ti_lookup_type"] = indicator_type
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render_forensics_page(user: dict) -> None:
@@ -971,7 +1371,6 @@ def render_forensics_page(user: dict) -> None:
 
     export_col, dist_col = st.columns([1, 1.4], gap="large")
     with export_col:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         st.subheader("Export Reports")
         st.caption("Download the recorded event history for investigations and audit evidence.")
         st.download_button(
@@ -992,10 +1391,8 @@ def render_forensics_page(user: dict) -> None:
             )
         except RuntimeError as exc:
             st.warning(str(exc))
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with dist_col:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         st.subheader("Log Analysis")
         risk_distribution = analysis.get("risk_distribution", {})
         if risk_distribution:
@@ -1005,30 +1402,24 @@ def render_forensics_page(user: dict) -> None:
             st.bar_chart(risk_df.set_index("Risk Level"))
         else:
             st.info("No events have been logged yet.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     bottom_left, bottom_right = st.columns([1, 1], gap="large")
     with bottom_left:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         st.subheader("Frequent Attack Types")
         top_types = analysis.get("top_attack_types", [])
         if top_types:
             st.dataframe(pd.DataFrame(top_types), use_container_width=True, hide_index=True)
         else:
             st.info("No attack records are available yet.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with bottom_right:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
         st.subheader("Top Source IPs")
         top_sources = analysis.get("top_source_ips", [])
         if top_sources:
             st.dataframe(pd.DataFrame(top_sources), use_container_width=True, hide_index=True)
         else:
             st.info("No malicious source IPs have been recorded yet.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="glass">', unsafe_allow_html=True)
     st.subheader("Event History")
     search = st.text_input("Search event logs", placeholder="Search by IP, attack type, risk level, verdict, or summary")
     if search.strip():
@@ -1071,7 +1462,6 @@ def render_forensics_page(user: dict) -> None:
                 st.json(event)
     else:
         st.info("No event logs match the current filter.")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _parse_port_input(raw_value: str) -> list[int]:
@@ -1102,34 +1492,21 @@ def render_vulnerability_scanner_page(user: dict) -> None:
     st.markdown('<div class="page-heading"><h1>Vulnerability Scanner</h1></div>', unsafe_allow_html=True)
     st.caption(f"Signed in as {user.get('username', 'unknown')}")
 
-    left, right = st.columns([1.1, 1], gap="large")
-    with left:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
-        target = st.text_input("Target Host", value="127.0.0.1", help="Use localhost, an IP address, or a hostname you are authorized to scan.")
-        port_mode = st.radio("Port Scope", ["Common ports", "Custom ports"], horizontal=True)
-        custom_ports_raw = ""
-        if port_mode == "Custom ports":
-            custom_ports_raw = st.text_input("Custom Ports", value="22,80,443,3306", help="Comma-separated ports or ranges like 20-25,80,443")
-        timeout = st.slider("Per-port timeout (seconds)", min_value=0.1, max_value=1.5, value=0.35, step=0.05)
-        st.info("This scanner performs TCP connect checks and applies safe heuristic checks for exposed services and common misconfigurations.")
-        if st.button("Run Vulnerability Scan", type="primary", use_container_width=True):
-            try:
-                ports = None if port_mode == "Common ports" else _parse_port_input(custom_ports_raw)
-                if port_mode == "Custom ports" and not ports:
-                    st.warning("Enter at least one valid custom port before starting the scan.")
-                else:
-                    st.session_state["latest_vulnerability_scan"] = scan_target(target, ports=ports, timeout=timeout)
-            except ValueError as exc:
-                st.error(str(exc))
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with right:
-        st.markdown('<div class="glass">', unsafe_allow_html=True)
-        st.subheader("What this checks")
-        st.write("Port scanning to find reachable TCP services.")
-        st.write("Open service detection using common port-to-service mapping.")
-        st.write("Misconfiguration detection for risky exposed services like Telnet, FTP, SMB, databases, RDP, and missing HTTPS.")
-        st.markdown('</div>', unsafe_allow_html=True)
+    target = st.text_input("Target Host", value="127.0.0.1", help="Use localhost, an IP address, or a hostname you are authorized to scan.")
+    port_mode = st.radio("Port Scope", ["Common ports", "Custom ports"], horizontal=True)
+    custom_ports_raw = ""
+    if port_mode == "Custom ports":
+        custom_ports_raw = st.text_input("Custom Ports", value="22,80,443,3306", help="Comma-separated ports or ranges like 20-25,80,443")
+    timeout = st.slider("Per-port timeout (seconds)", min_value=0.1, max_value=1.5, value=0.35, step=0.05)
+    if st.button("Run Vulnerability Scan", type="primary", use_container_width=True):
+        try:
+            ports = None if port_mode == "Common ports" else _parse_port_input(custom_ports_raw)
+            if port_mode == "Custom ports" and not ports:
+                st.warning("Enter at least one valid custom port before starting the scan.")
+            else:
+                st.session_state["latest_vulnerability_scan"] = scan_target(target, ports=ports, timeout=timeout)
+        except ValueError as exc:
+            st.error(str(exc))
 
     result = st.session_state.get("latest_vulnerability_scan")
     if not result:
